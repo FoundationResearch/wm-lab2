@@ -1,0 +1,6 @@
+minedojo
+numpy>=1.20
+tqdm>=4.64
+imageio>=2.28
+imageio-ffmpeg>=0.4.8
+
