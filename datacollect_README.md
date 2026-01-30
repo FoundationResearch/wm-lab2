@@ -24,7 +24,7 @@
 
 ```bash
 conda activate alexwm2
-python data_collector.py --policy wasd4hold --num_episodes 5 --max_steps 200
+python data_collector.py --policy wasd4hold --num_episodes 5 --image_size_hw 256,256 --out_root ./data/wasd4hold --fps 25 --max_steps 125
 ```
 
 如果你想手动覆盖：
