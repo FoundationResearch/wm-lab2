@@ -1,6 +1,8 @@
-minedojo
-numpy>=1.20
+minedojo==0.2.1
+numpy>=1.20,<2.0
 tqdm>=4.64
 imageio>=2.28
 imageio-ffmpeg>=0.4.8
+# NOTE: MineDojo 0.2.1 is incompatible with NumPy>=2.0 (uses removed np.unicode_).
+# Some opencv-python versions (e.g. 4.12+) may force numpy>=2 on Py>=3.9; avoid installing opencv-python in this env.
 
