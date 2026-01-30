@@ -8,5 +8,4 @@ python playground/hyw4average/render_traj3d.py \
   --fps 25 --mode interp --frames_per_latent 4 \
   --view follow --follow_look camera \
   --follow_look_down 0.4 \
-  --with_rgb \
-  --fog_start 5 --fog_end 10
+  --with_rgb

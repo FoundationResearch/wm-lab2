@@ -503,6 +503,14 @@ def main() -> int:
     p.add_argument("--fog", action="store_true", help="Enable distance fog on the checkerboard (color fade).")
     p.add_argument("--fog_start", type=float, default=30.0, help="Fog starts at this distance (world units).")
     p.add_argument("--fog_end", type=float, default=140.0, help="Fog fully opaque at this distance (world units).")
+    p.add_argument(
+        "--sky_color",
+        type=str,
+        default="1,1,1",
+        help="Background RGB in 0..1, e.g. '1,1,1' (white) or '0.53,0.81,0.92' (sky blue).",
+    )
+    p.add_argument("--z_near", type=float, default=0.05, help="Viewer camera near plane (Open3D Visualizer).")
+    p.add_argument("--z_far", type=float, default=2000.0, help="Viewer camera far plane (Open3D Visualizer). Increase to avoid hard clipping.")
 
     p.add_argument("--frustum_depth", type=float, default=1.0, help="Depth (in camera coords) for drawing frustum.")
     p.add_argument("--draw_every", type=int, default=1, help="Draw frustum every N latents (1=all).")
@@ -510,6 +518,15 @@ def main() -> int:
     args = p.parse_args()
 
     o3d = _require_open3d()
+
+    def _parse_rgb01(s: str) -> Tuple[float, float, float]:
+        parts = [p.strip() for p in s.split(",")]
+        if len(parts) != 3:
+            raise SystemExit(f"Invalid --sky_color '{s}', expected 'r,g,b' in 0..1")
+        r, g, b = (float(parts[0]), float(parts[1]), float(parts[2]))
+        return (_clamp(r, 0.0, 1.0), _clamp(g, 0.0, 1.0), _clamp(b, 0.0, 1.0))
+
+    sky_rgb = _parse_rgb01(args.sky_color)
 
     episode_dir = Path(args.episode_dir).expanduser().resolve()
     cam_path = (
@@ -535,7 +552,7 @@ def main() -> int:
     try:
         renderer = o3d.visualization.rendering.OffscreenRenderer(int(args.width), int(args.height))
         scene = renderer.scene
-        scene.set_background([1.0, 1.0, 1.0, 1.0])
+        scene.set_background([sky_rgb[0], sky_rgb[1], sky_rgb[2], 1.0])
     except Exception as e:
         use_offscreen = False
         print(f"[warn] OffscreenRenderer unavailable; falling back to Visualizer hidden window. ({type(e).__name__}: {e})")
@@ -570,7 +587,7 @@ def main() -> int:
     checker = _make_checkerboard(size=size, squares_per_side=squares_per_side, y=floor_y)
     checker_verts = np.asarray(checker.vertices).copy()
     checker_base_cols = np.asarray(checker.vertex_colors).copy()
-    fog_color = (1.0, 1.0, 1.0)  # background is white
+    fog_color = sky_rgb
     if use_offscreen:
         # In Filament scene, colored meshes render well with defaultLit.
         scene.add_geometry("checker", checker, mat_mesh)
@@ -692,7 +709,7 @@ def main() -> int:
                 visible=False,
             )
             try:
-                vis.get_render_option().background_color = np.array([1.0, 1.0, 1.0])
+                vis.get_render_option().background_color = np.array([sky_rgb[0], sky_rgb[1], sky_rgb[2]])
                 opt = vis.get_render_option()
                 # Ensure vertex colors are used for the checkerboard.
                 try:
@@ -721,6 +738,12 @@ def main() -> int:
 
                 # Configure initial view
                 vc = vis.get_view_control()
+                # Avoid far-plane clipping of large checkerboard / horizon
+                try:
+                    vc.set_constant_z_near(float(args.z_near))
+                    vc.set_constant_z_far(float(args.z_far))
+                except Exception:
+                    pass
                 if args.view == "god":
                     front = (center - eye).astype(np.float64)
                     front = front / (np.linalg.norm(front) + 1e-9)
@@ -792,7 +815,13 @@ def main() -> int:
                                 fog_color=fog_color,
                             )
                             checker.vertex_colors = o3d.utility.Vector3dVector(new_cols)
-                            vis.update_geometry(checker)
+                            # Visualizer doesn't reliably refresh vertex colors with update_geometry,
+                            # so force re-add. Keep bbox to avoid camera jumps.
+                            try:
+                                vis.remove_geometry(checker, reset_bounding_box=False)
+                            except Exception:
+                                pass
+                            vis.add_geometry(checker, reset_bounding_box=False)
                         marker_i.translate((pos - curr_pos).tolist(), relative=True)
                         curr_pos = pos
                         vis.update_geometry(marker_i)
