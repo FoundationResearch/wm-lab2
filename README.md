@@ -86,4 +86,35 @@ def make_policy(nvec, noop, rng) -> Policy:
 - `--active_dims`: safe_random 只随机哪些维度（默认 `0,1,2,3,4`）
 - `--out_root`: 输出根目录
 
+---
+
+## Data Manager（交互式管理 episode：删除/分类）
+
+进入交互式命令行（推荐在 `alexwm2` 环境里运行）：
+
+```bash
+python -m wm_lab2.tools.data_manager --root ./data --recursive
+```
+
+常用命令：
+- `list` / `list ok` / `list empty` / `list failed`
+- `show <episode_id_or_prefix>`
+- `rm <episode_id_or_prefix>`
+- `rm_empty`（一键删除空 episode）
+- `rm_failed`（一键删除失败 episode）
+- `mv <episode_id_or_prefix> <category>`（把 episode 移动到 `data/<category>/<episode_id>/` 方便分类）
+
+---
+
+## Post-processing（把 npz 转成其他格式，方便扩展）
+
+把所有 ok episode 的 `actions` 导出成 JSON（写到 `postprocessed/` 子目录）：
+
+```bash
+python -m wm_lab2.tools.postprocess --root ./data --only_ok --processor actions_json --out_mode subdir
+```
+
+说明：
+- `--processor actions_json` 是一个内置 processor；后续想支持别的格式，只要在 `wm_lab2/postprocess/` 新增 processor 并注册即可。
+
 
