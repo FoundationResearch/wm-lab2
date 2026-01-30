@@ -1,37 +1,89 @@
-# wm-lab2
-# ==========================================
-# MineDojo & World Model Data Collection 
-# 环境安装指南 (Tested 2026)
-# ==========================================
+## wm-lab2 (MineDojo 数据采集)
 
-# 1. 准备工作：系统级依赖 (Ubuntu/Debian)
-# 如果你在服务器上跑（无显示器），xvfb 是必须的
-sudo apt-get update
-sudo apt-get install -y xvfb openjdk-8-jdk libgl1-mesa-glx
+这个 repo 用于从 **MineDojo** 采集轨迹数据，代码按三层组织：
+- **Input layer**: `wm_lab2/inputs/`（动作生成策略 / policy，可替换）
+- **Sim layer**: `wm_lab2/sim/`（MineDojo 环境创建 + rollout）
+- **Output layer**: `wm_lab2/output/`（写 `video.mp4` + `data.npz` + `manifest.json`）
 
-# 2. 创建干净的 Conda 环境
-# 注意：强烈建议使用 Python 3.9，这是 MineDojo 最稳定的版本
-conda create -n mine_env python=3.9 -y
-conda activate mine_env
+你主要跑 `data_collector.py`（CLI 入口），通过参数选择不同的 policy。
 
-# 3. 安装 Java 8 (关键步骤)
-# MineDojo 必须使用 Java 8，不能用 Java 11/17/21
-conda install -c conda-forge openjdk=8 -y
+---
 
-# 验证 Java 版本 (必须输出 1.8.x 或 openjdk version "1.8...")
-java -version
+## 安装/环境
 
-# 4. “时光倒流”：降级构建工具 (关键步骤)
-# 解决 Gym 0.21.0 的 "metadata" 和 "setup" 错误
-# 必须把 pip 降级到 24.0 以下，否则无法安装 gym
-pip install "pip<24.0"
-pip install "setuptools<60" "wheel<0.40"
+安装细节见：`installation_README.md`（Java8 / gym 版本等）。
 
-# 5. 手动安装 Gym 0.21.0
-# 使用 --no-build-isolation 确保使用我们降级过的 setuptools
-pip install gym==0.21.0 --no-build-isolation
+你本机已经有 conda env：`alexwm2` 的话，直接：
 
-# 6. 安装 MineDojo 主包
-pip install minedojo
+```bash
+conda activate alexwm2
+python --version
+python -c "import minedojo, numpy; print('env_ok')"
+```
 
-# 7. 安装数据采集
+---
+
+## 快速运行（采 1 个 episode）
+
+### 默认（安全随机，避免 equip air）
+
+```bash
+python data_collector.py --num_episodes 1 --max_steps 100 --out_root ./data --policy safe_random
+```
+
+### 只允许 WASD (+ 少量 jump)
+
+```bash
+python data_collector.py --num_episodes 1 --max_steps 200 --out_root ./data --policy wasd --p_jump 0.05
+```
+
+---
+
+## 输出格式
+
+每个 episode 一个文件夹：
+
+`data/episode_<UTC时间戳>_<index>/`
+- `manifest.json`: 环境参数 + policy + action space 信息
+- `video.mp4`: 观测 RGB 视频（H.264）
+- `data.npz`: 对齐的 step 序列
+  - `actions`: (T, D) int64
+  - `positions`: (T, 3) float32
+  - `yaws`: (T,) float32
+  - `pitches`: (T,) float32
+
+---
+
+## Policy 怎么自定义（接 agent）
+
+CLI 支持 `--policy custom`，并用 `--policy_entrypoint` 指定一个 **factory**：
+
+```bash
+python data_collector.py \
+  --num_episodes 1 --max_steps 200 --out_root ./data \
+  --policy custom \
+  --policy_entrypoint examples.custom_policy:make_policy
+```
+
+其中 `examples/custom_policy.py` 里提供了模板：factory 签名必须是：
+
+```python
+def make_policy(nvec, noop, rng) -> Policy:
+    ...
+```
+
+返回对象需要实现：
+- `reset(obs) -> None`
+- `act(obs) -> np.ndarray`  （动作向量 shape (D,)）
+
+---
+
+## 常用参数速查
+
+- `--task_id`: MineDojo task（默认 `open-ended`）
+- `--image_size_hw`: `H,W`（默认 `160,256`）
+- `--policy`: `safe_random | wasd | custom`
+- `--active_dims`: safe_random 只随机哪些维度（默认 `0,1,2,3,4`）
+- `--out_root`: 输出根目录
+
+
