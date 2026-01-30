@@ -19,6 +19,7 @@ Notes:
 import argparse
 import json
 import math
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -28,6 +29,32 @@ import numpy as np
 
 def _clamp(x: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, float(x)))
+
+
+def _apply_radial_fog_to_vertex_colors(
+    *,
+    verts: np.ndarray,
+    base_colors: np.ndarray,
+    fog_center_xyz: np.ndarray,
+    fog_start: float,
+    fog_end: float,
+    fog_color: Tuple[float, float, float],
+) -> np.ndarray:
+    """
+    Simple 'fog' by blending vertex colors toward fog_color based on XZ distance
+    from fog_center (typically viewer eye position). This avoids hard cutoffs at
+    the checkerboard boundary and looks like distance fog.
+    """
+    c = np.asarray(fog_center_xyz, dtype=np.float64).reshape(1, 3)
+    p = np.asarray(verts, dtype=np.float64)
+    # XZ plane distance
+    d = np.linalg.norm(p[:, [0, 2]] - c[:, [0, 2]], axis=1)
+    start = max(1e-6, float(fog_start))
+    end = max(start + 1e-6, float(fog_end))
+    t = (d - start) / (end - start)
+    t = np.clip(t, 0.0, 1.0).reshape(-1, 1)
+    fog = np.array(fog_color, dtype=np.float64).reshape(1, 3)
+    return (1.0 - t) * base_colors + t * fog
 
 
 def _require_open3d():
@@ -473,6 +500,9 @@ def main() -> int:
         default=None,
         help="Optional explicit path to original RGB video (defaults to <episode_dir>/video.mp4).",
     )
+    p.add_argument("--fog", action="store_true", help="Enable distance fog on the checkerboard (color fade).")
+    p.add_argument("--fog_start", type=float, default=30.0, help="Fog starts at this distance (world units).")
+    p.add_argument("--fog_end", type=float, default=140.0, help="Fog fully opaque at this distance (world units).")
 
     p.add_argument("--frustum_depth", type=float, default=1.0, help="Depth (in camera coords) for drawing frustum.")
     p.add_argument("--draw_every", type=int, default=1, help="Draw frustum every N latents (1=all).")
@@ -538,6 +568,9 @@ def main() -> int:
     sq = max(0.5, float(args.checker_square_size))
     squares_per_side = int(max(20.0, min(240.0, size / sq)))
     checker = _make_checkerboard(size=size, squares_per_side=squares_per_side, y=floor_y)
+    checker_verts = np.asarray(checker.vertices).copy()
+    checker_base_cols = np.asarray(checker.vertex_colors).copy()
+    fog_color = (1.0, 1.0, 1.0)  # background is white
     if use_offscreen:
         # In Filament scene, colored meshes render well with defaultLit.
         scene.add_geometry("checker", checker, mat_mesh)
@@ -744,6 +777,22 @@ def main() -> int:
                             vc.set_lookat(look_use.tolist())
                             vc.set_front(front_b.tolist())
                             vc.set_up([0.0, 1.0, 0.0])
+                            # Fog center uses viewer eye position for correct 'disappear in distance' look
+                            fog_center = eye_use
+                        else:
+                            fog_center = eye
+
+                        if bool(args.fog):
+                            new_cols = _apply_radial_fog_to_vertex_colors(
+                                verts=checker_verts,
+                                base_colors=checker_base_cols,
+                                fog_center_xyz=fog_center,
+                                fog_start=float(args.fog_start),
+                                fog_end=float(args.fog_end),
+                                fog_color=fog_color,
+                            )
+                            checker.vertex_colors = o3d.utility.Vector3dVector(new_cols)
+                            vis.update_geometry(checker)
                         marker_i.translate((pos - curr_pos).tolist(), relative=True)
                         curr_pos = pos
                         vis.update_geometry(marker_i)
@@ -860,8 +909,14 @@ def main() -> int:
                     pass
 
         print(f"Wrote: {out_path_combo}")
+        # If we successfully produced the composed video, remove the traj-only one.
+        try:
+            os.remove(out_path_traj)
+        except Exception:
+            pass
 
-    print(f"Wrote: {out_path_traj}")
+    if out_path_traj.exists():
+        print(f"Wrote: {out_path_traj}")
     return 0
 
 
