@@ -41,6 +41,7 @@ class EpisodeRecord:
 
     episode_id: str
     paths: EpisodePaths
+    category: str = ""
     manifest: Optional[Dict[str, Any]] = None
     status: EpisodeStatus = EpisodeStatus.failed
     reason: str = ""
@@ -174,7 +175,15 @@ def scan_dataset(
 ) -> List[EpisodeRecord]:
     recs: List[EpisodeRecord] = []
     for ep_dir in iter_episode_dirs(root, recursive=recursive):
-        recs.append(classify_episode(ep_dir, empty_video_bytes=empty_video_bytes))
+        rec = classify_episode(ep_dir, empty_video_bytes=empty_video_bytes)
+        # Infer category from path: <root>/<category>/episode_*/*
+        # If episode is directly under root, category is "".
+        try:
+            rel = ep_dir.relative_to(root)
+            rec.category = rel.parts[0] if len(rel.parts) >= 2 else ""
+        except Exception:
+            rec.category = ""
+        recs.append(rec)
     recs.sort(key=lambda r: r.episode_id)
     return recs
 

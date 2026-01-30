@@ -28,7 +28,12 @@ def main() -> int:
     parser.add_argument("--max_steps", type=int, default=1000)
     parser.add_argument("--fps", type=int, default=20)
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--out_root", type=str, default="./dataset")
+    parser.add_argument(
+        "--out_root",
+        type=str,
+        default=None,
+        help="Output root. If omitted, defaults to ./data/<policy_name>/",
+    )
     parser.add_argument("--no_progress", action="store_true", help="Disable tqdm progress bars.")
 
     # Env
@@ -40,7 +45,7 @@ def main() -> int:
         "--policy",
         type=str,
         default="safe_random",
-        help="safe_random | wasd | custom",
+        help="safe_random | wasd | wasd4hold | custom",
     )
     parser.add_argument(
         "--policy_entrypoint",
@@ -56,8 +61,20 @@ def main() -> int:
     )
     parser.add_argument("--non_stationary_prob", type=float, default=0.95)
     parser.add_argument("--p_jump", type=float, default=0.05)
+    parser.add_argument("--hold_frames", type=int, default=4, help="For wasd4hold: hold the sampled WASD action for N frames.")
 
     args = parser.parse_args()
+
+    # Policy-specific defaults (only apply if user did not override the defaults).
+    # - For wasd4hold, we default to 256x256 and output under ./data/hyw4hold
+    if args.policy.strip().lower() == "wasd4hold":
+        if args.image_size_hw == "160,256":
+            args.image_size_hw = "256,256"
+        # out_root is always per-policy unless user explicitly overrides it
+
+    if args.out_root is None:
+        policy_name = args.policy.strip().lower()
+        args.out_root = f"./data/{policy_name}"
 
     h, w = _parse_int_tuple(args.image_size_hw)
     active_dims = _parse_int_tuple(args.active_dims) if args.active_dims else None
@@ -76,6 +93,7 @@ def main() -> int:
         active_dims=active_dims,
         non_stationary_prob=args.non_stationary_prob,
         p_jump=args.p_jump,
+        hold_frames=args.hold_frames,
     )
     return collect(cfg)
 

@@ -9,6 +9,7 @@ import numpy as np
 from wm_lab2.inputs.base import Policy
 from wm_lab2.inputs.safe_random import SafeRandomPolicy
 from wm_lab2.inputs.wasd import WASDOnlyPolicy
+from wm_lab2.inputs.wasd4hold import WASD4HoldPolicy
 
 
 def _import_obj(spec: str) -> Any:
@@ -36,6 +37,7 @@ def make_policy(
     non_stationary_prob: float = 0.95,
     # WASD args
     p_jump: float = 0.05,
+    hold_frames: int = 4,
     # Custom policy factory: "pkg.module:factory"
     entrypoint: Optional[str] = None,
 ) -> Policy:
@@ -45,6 +47,7 @@ def make_policy(
     Built-ins:
     - name="safe_random"
     - name="wasd"
+    - name="wasd4hold"
 
     Custom:
     - name="custom" + entrypoint="pkg.module:factory"
@@ -65,6 +68,9 @@ def make_policy(
     if name == "wasd":
         return WASDOnlyPolicy(nvec=nvec, noop=noop, rng=rng, p_jump=p_jump)
 
+    if name == "wasd4hold":
+        return WASD4HoldPolicy(nvec=nvec, noop=noop, rng=rng, p_jump=p_jump, hold_frames=hold_frames)
+
     if name == "custom":
         if not entrypoint:
             raise ValueError("policy 'custom' requires --policy_entrypoint pkg.module:factory")
@@ -76,6 +82,6 @@ def make_policy(
             raise ValueError("Custom factory must return a Policy-like object with .act(obs)->action.")
         return policy  # type: ignore[return-value]
 
-    raise ValueError(f"Unknown policy '{name}'. Use one of: safe_random, wasd, custom.")
+    raise ValueError(f"Unknown policy '{name}'. Use one of: safe_random, wasd, wasd4hold, custom.")
 
 

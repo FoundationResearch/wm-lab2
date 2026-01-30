@@ -97,11 +97,11 @@ python -m wm_lab2.tools.data_manager --root ./data --recursive
 ```
 
 常用命令：
-- `list` / `list ok` / `list empty` / `list failed`
+- `ls` / `ls ok` / `ls empty` / `ls failed`
 - `show <episode_id_or_prefix>`
 - `rm <episode_id_or_prefix>`
-- `rm_empty`（一键删除空 episode）
-- `rm_failed`（一键删除失败 episode）
+- `rm empty` / `rm failed`（一键按状态删除）
+- `rm all empty` / `rm all failed` / `rm all ok` / `rm all`
 - `mv <episode_id_or_prefix> <category>`（把 episode 移动到 `data/<category>/<episode_id>/` 方便分类）
 
 ---

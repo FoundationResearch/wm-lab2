@@ -34,6 +34,7 @@ class CollectConfig:
     active_dims: Optional[tuple[int, ...]] = None  # for safe_random
     non_stationary_prob: float = 0.95  # for safe_random
     p_jump: float = 0.05  # for wasd
+    hold_frames: int = 4  # for wasd4hold
 
 
 def collect(cfg: CollectConfig) -> int:
@@ -51,6 +52,7 @@ def collect(cfg: CollectConfig) -> int:
             active_dims=cfg.active_dims,
             non_stationary_prob=cfg.non_stationary_prob,
             p_jump=cfg.p_jump,
+            hold_frames=cfg.hold_frames,
             entrypoint=cfg.policy_entrypoint,
         )
 
