@@ -585,6 +585,9 @@ def main() -> int:
     sq = max(0.5, float(args.checker_square_size))
     squares_per_side = int(max(20.0, min(240.0, size / sq)))
     checker = _make_checkerboard(size=size, squares_per_side=squares_per_side, y=floor_y)
+    # IMPORTANT: center the floor under the trajectory in XZ. If the episode is far from origin,
+    # an origin-centered floor can fall outside the view / fog and "disappear".
+    checker.translate([float(center[0]), 0.0, float(center[2])], relative=True)
     checker_verts = np.asarray(checker.vertices).copy()
     checker_base_cols = np.asarray(checker.vertex_colors).copy()
     fog_color = sky_rgb
