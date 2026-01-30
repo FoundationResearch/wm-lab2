@@ -19,8 +19,8 @@ from wm_lab2.utils import ensure_dir, utc_timestamp
 @dataclass(frozen=True)
 class CollectConfig:
     num_episodes: int = 10
-    max_steps: int = 1000
-    fps: int = 20
+    max_steps: int = 125
+    fps: int = 25
     seed: int = 0
     out_root: str = "./dataset"
     no_progress: bool = False

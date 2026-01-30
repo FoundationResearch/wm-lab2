@@ -6,6 +6,7 @@
 - **Output layer**: `wm_lab2/output/`（写 `video.mp4` + `data.npz` + `manifest.json`）
 
 你主要跑 `data_collector.py`（CLI 入口），通过参数选择不同的 policy。
+如果你不指定 `--out_root`，默认会输出到：`./data/<policy_name>/`（每个 policy 一个文件夹，方便按类别管理）。
 
 ---
 
@@ -28,13 +29,13 @@ python -c "import minedojo, numpy; print('env_ok')"
 ### 默认（安全随机，避免 equip air）
 
 ```bash
-python data_collector.py --num_episodes 1 --max_steps 100 --out_root ./data --policy safe_random
+python data_collector.py --num_episodes 1 --max_steps 100 --policy safe_random
 ```
 
 ### 只允许 WASD (+ 少量 jump)
 
 ```bash
-python data_collector.py --num_episodes 1 --max_steps 200 --out_root ./data --policy wasd --p_jump 0.05
+python data_collector.py --num_episodes 1 --max_steps 200 --policy wasd --p_jump 0.05
 ```
 
 ---

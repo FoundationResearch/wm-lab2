@@ -25,8 +25,8 @@ def _parse_int_tuple(s: str) -> Tuple[int, ...]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Collect MineDojo trajectories.")
     parser.add_argument("--num_episodes", type=int, default=10)
-    parser.add_argument("--max_steps", type=int, default=1000)
-    parser.add_argument("--fps", type=int, default=20)
+    parser.add_argument("--max_steps", type=int, default=125)
+    parser.add_argument("--fps", type=int, default=25)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument(
         "--out_root",

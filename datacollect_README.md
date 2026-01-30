@@ -17,20 +17,20 @@
 特点：**WASD 动作每 4 帧保持不变**，方便后续 `hyw-4average` 做 4 帧 -> 1 latent。
 
 默认行为（当你不显式传 `--out_root` / `--image_size_hw` 时）：
-- `out_root` → `./data/hyw4hold`
+- `out_root` → `./data/wasd4hold`
 - `image_size_hw` → `256,256`
 
 运行：
 
 ```bash
 conda activate alexwm2
-python data_collector.py --policy wasd4hold --num_episodes 1 --max_steps 200
+python data_collector.py --policy wasd4hold --num_episodes 5 --max_steps 200
 ```
 
 如果你想手动覆盖：
 
 ```bash
-python data_collector.py --policy wasd4hold --hold_frames 4 --image_size_hw 256,256 --out_root ./data/hyw4hold
+python data_collector.py --policy wasd4hold --hold_frames 4 --image_size_hw 256,256 --out_root ./data/wasd4hold
 ```
 
 ---
@@ -60,7 +60,7 @@ def make_policy(nvec, noop, rng):
 - `--task_id`：默认 `open-ended`
 - `--image_size_hw`：`H,W`（MineDojo 用 H,W）
 - `--out_root`：输出根目录
-- `--seed` / `--fps` / `--max_steps`
+- `--seed` / `--fps` / `--max_steps`（默认 `fps=25`，`max_steps=125`）
 - `--p_jump`：用于 `wasd/wasd4hold`
 - `--hold_frames`：用于 `wasd4hold`
 
