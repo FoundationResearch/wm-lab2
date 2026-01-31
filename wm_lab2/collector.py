@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import traceback
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Optional
 
@@ -41,11 +42,37 @@ class CollectConfig:
     # Policy knobs (wasd12holdrandview)
     pitch_min_deg: float = -45.0
     pitch_max_deg: float = 45.0
+    # Parallel safety: serialize the first MineDojo env.reset() across workers to avoid
+    # concurrent ForgeGradle/Malmo cache initialization corruption.
+    serialize_env_init: bool = True
 
 
 def _seed_for_worker(root_seed: int, worker_id: int) -> int:
     # A simple, stable mixing function to keep worker RNG streams apart.
     return int(root_seed) + int(worker_id) * 1_000_003
+
+
+@contextmanager
+def _file_lock(lock_path: str):
+    """
+    Best-effort cross-process lock (POSIX). If locking is unavailable, this is a no-op.
+    """
+    try:
+        import fcntl  # POSIX only
+
+        ensure_dir(os.path.dirname(lock_path) or ".")
+        with open(lock_path, "a+", encoding="utf-8") as f:
+            fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                try:
+                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+                except Exception:
+                    pass
+    except Exception:
+        # No-op fallback (e.g., non-POSIX). Parallel init may still race.
+        yield
 
 
 def _collect_single_process(cfg: CollectConfig) -> int:
@@ -143,6 +170,16 @@ def _worker_main(cfg: CollectConfig, *, worker_id: int, num_eps: int, global_off
             pitch_max_deg=float(cfg.pitch_max_deg),
             entrypoint=cfg.policy_entrypoint,
         )
+
+        # Warmup: serialize the very first env.reset() across workers to avoid concurrent
+        # initialization of MineDojo/Malmo/ForgeGradle caches (can cause "Corrupted pack file").
+        if int(worker_id) == 0:
+            # Small delay gives other workers time to reach the lock and queue fairly.
+            pass
+        if bool(cfg.serialize_env_init) and int(cfg.num_workers) > 1:
+            lock_path = os.path.join(cfg.out_root, ".minedojo_env_init.lock")
+            with _file_lock(lock_path):
+                _ = env.reset()
 
         for local_idx in range(int(num_eps)):
             global_idx = int(global_offset) + int(local_idx)
