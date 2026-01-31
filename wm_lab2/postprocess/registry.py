@@ -5,11 +5,13 @@ from typing import Dict, List
 from wm_lab2.postprocess.actions_json import ActionsJSONProcessor
 from wm_lab2.postprocess.base import Processor
 from wm_lab2.postprocess.hyw_4average import HYW4AverageProcessor
+from wm_lab2.postprocess.mg12average import MG12AverageProcessor
 
 
 _PROCESSORS: Dict[str, Processor] = {
     "actions_json": ActionsJSONProcessor(),
     "hyw-4average": HYW4AverageProcessor(),
+    "mg12average": MG12AverageProcessor(),
 }
 
 

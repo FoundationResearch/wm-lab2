@@ -48,6 +48,7 @@ def make_policy(
     - name="safe_random"
     - name="wasd"
     - name="wasd4hold"
+    - name="wasd12hold"
 
     Custom:
     - name="custom" + entrypoint="pkg.module:factory"
@@ -71,6 +72,9 @@ def make_policy(
     if name == "wasd4hold":
         return WASD4HoldPolicy(nvec=nvec, noop=noop, rng=rng, p_jump=p_jump, hold_frames=hold_frames)
 
+    if name == "wasd12hold":
+        return WASD4HoldPolicy(nvec=nvec, noop=noop, rng=rng, p_jump=p_jump, hold_frames=hold_frames)
+
     if name == "custom":
         if not entrypoint:
             raise ValueError("policy 'custom' requires --policy_entrypoint pkg.module:factory")
@@ -82,6 +86,6 @@ def make_policy(
             raise ValueError("Custom factory must return a Policy-like object with .act(obs)->action.")
         return policy  # type: ignore[return-value]
 
-    raise ValueError(f"Unknown policy '{name}'. Use one of: safe_random, wasd, wasd4hold, custom.")
+    raise ValueError(f"Unknown policy '{name}'. Use one of: safe_random, wasd, wasd4hold, wasd12hold, custom.")
 
 

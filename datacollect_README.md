@@ -40,6 +40,7 @@ python data_collector.py --policy wasd4hold --hold_frames 4 --image_size_hw 256,
 - **`safe_random`**：默认策略；从 `no_op()` 出发，仅随机移动/视角维度，避免 inventory/equip 报错
 - **`wasd`**：只动前后/左右/（可选）跳跃
 - **`wasd4hold`**：`wasd` 版本，但动作会 hold N 帧（默认 4 帧）
+- **`wasd12hold`**：`wasd` 版本，但动作会 hold 12 帧（为 12-frame latent 的 postprocess 设计）
 - **`custom`**：通过 `--policy_entrypoint pkg.module:factory` 注入自定义策略
 
 自定义策略 factory 签名：

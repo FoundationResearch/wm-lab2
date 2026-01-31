@@ -31,7 +31,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         type=str,
         default="inplace",
         choices=["inplace", "subdir"],
-        help="Where to write outputs: inplace (episode dir) or subdir (episode_dir/postprocessed/).",
+        help="Where to write outputs: inplace (episode dir) or subdir (episode_dir/<processor_name>/).",
     )
     p.add_argument("--overwrite", action="store_true", help="Overwrite existing derived outputs.")
 
@@ -51,7 +51,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         n_total += 1
 
         manifest = _safe_read_json(ep.paths.manifest)
-        out_dir = ep.paths.root if args.out_mode == "inplace" else (ep.paths.root / "postprocessed")
+        out_dir = ep.paths.root if args.out_mode == "inplace" else (ep.paths.root / proc.name)
         proc.process(
             episode_dir=ep.paths.root,
             manifest=manifest,

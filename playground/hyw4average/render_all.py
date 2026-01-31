@@ -22,7 +22,9 @@ def _find_episode_dirs(data_dir: Path) -> List[Path]:
 
 
 def _has_hyw_camera(ep_dir: Path) -> bool:
-    return (ep_dir / "postprocessed" / "hyw-4average_camera.json").exists()
+    return (ep_dir / "hyw-4average" / "hyw-4average_camera.json").exists() or (
+        ep_dir / "postprocessed" / "hyw-4average_camera.json"
+    ).exists()
 
 
 def _run(cmd: List[str]) -> int:

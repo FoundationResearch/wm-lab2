@@ -18,6 +18,7 @@
 - 当前支持：
   - `actions_json`
   - `hyw-4average`
+  - `mg12average`
 
 执行：
 
@@ -30,7 +31,7 @@ python -m wm_lab2.tools.postprocess --root ./data --recursive --only_ok --proces
 - `--only_ok`：只处理 data manager 判定为 ok 的 episode
 - `--out_mode inplace|subdir`：
   - `inplace`：写到 episode 根目录
-  - `subdir`：写到 `episode_*/postprocessed/`
+  - `subdir`：写到 `episode_*/<processor_name>/`
 - `--overwrite`：覆盖已有输出
 
 ---
@@ -90,5 +91,23 @@ key 是 latent index（字符串），value：
 注意：
 - `K` 目前用 `image_size_hw` + 默认 `fov=70°` 推导
 - `w2c` 使用每个 latent 的代表 pose（默认用该组最后一帧的 pos/yaw/pitch）
+
+---
+
+## Processor: `mg12average`
+
+用途：把 **12 帧合成 1 个 latent**（每 12 帧做 majority voting），输出 move/view + 相机参数。
+
+输出目录（推荐 `--out_mode subdir`）：
+- `data/<policy>/<episode>/mg12average/`
+
+输出文件：
+- `mg12average_actions.json`
+- `mg12average_camera.json`
+
+latent 定义：
+- latent 0 对应 frames `[0..11]`
+- latent 1 对应 frames `[12..23]`
+- …
 
 

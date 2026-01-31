@@ -45,7 +45,7 @@ def main() -> int:
         "--policy",
         type=str,
         default="safe_random",
-        help="safe_random | wasd | wasd4hold | custom",
+        help="safe_random | wasd | wasd4hold | wasd12hold | custom",
     )
     parser.add_argument(
         "--policy_entrypoint",
@@ -66,15 +66,16 @@ def main() -> int:
     args = parser.parse_args()
 
     # Policy-specific defaults (only apply if user did not override the defaults).
-    # - For wasd4hold, we default to 256x256 and output under ./data/hyw4hold
-    if args.policy.strip().lower() == "wasd4hold":
+    policy_l = args.policy.strip().lower()
+    if policy_l in ("wasd4hold", "wasd12hold"):
         if args.image_size_hw == "160,256":
             args.image_size_hw = "256,256"
-        # out_root is always per-policy unless user explicitly overrides it
+        # hold_frames: wasd12hold defaults to 12
+        if policy_l == "wasd12hold" and int(args.hold_frames) == 4:
+            args.hold_frames = 12
 
     if args.out_root is None:
-        policy_name = args.policy.strip().lower()
-        args.out_root = f"./data/{policy_name}"
+        args.out_root = f"./data/{policy_l}"
 
     h, w = _parse_int_tuple(args.image_size_hw)
     active_dims = _parse_int_tuple(args.active_dims) if args.active_dims else None

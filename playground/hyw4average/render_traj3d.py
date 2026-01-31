@@ -532,8 +532,14 @@ def main() -> int:
     cam_path = (
         Path(args.camera_json).expanduser().resolve()
         if args.camera_json
-        else (episode_dir / "postprocessed" / "hyw-4average_camera.json")
+        else None
     )
+    if cam_path is None:
+        # New layout: episode/<processor_name>/...
+        p1 = episode_dir / "hyw-4average" / "hyw-4average_camera.json"
+        # Legacy layout: episode/postprocessed/...
+        p2 = episode_dir / "postprocessed" / "hyw-4average_camera.json"
+        cam_path = p1 if p1.exists() else p2
     if not cam_path.exists():
         raise SystemExit(f"camera json not found: {cam_path}")
 
