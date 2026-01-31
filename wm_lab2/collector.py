@@ -27,6 +27,7 @@ class CollectConfig:
     # Env
     task_id: str = "open-ended"
     image_size_hw: tuple[int, int] = (160, 256)
+    cam_interval: float = 15.0
     # Policy
     policy: str = "safe_random"  # safe_random | wasd | custom
     policy_entrypoint: Optional[str] = None  # for custom
@@ -43,7 +44,9 @@ def collect(cfg: CollectConfig) -> int:
 
     env = None
     try:
-        env, nvec, noop = make_env(EnvSpec(task_id=cfg.task_id, image_size_hw=cfg.image_size_hw))
+        env, nvec, noop = make_env(
+            EnvSpec(task_id=cfg.task_id, image_size_hw=cfg.image_size_hw, cam_interval=float(cfg.cam_interval))
+        )
         policy = make_policy(
             name=cfg.policy,
             nvec=nvec,
@@ -76,6 +79,7 @@ def collect(cfg: CollectConfig) -> int:
                 action_nvec=[int(x) for x in nvec.tolist()],
                 policy_name=cfg.policy,
             )
+            manifest["cam_interval"] = float(cfg.cam_interval)
             # Back-compat keys (kept from original script)
             manifest.setdefault("image_size_hw", [int(cfg.image_size_hw[0]), int(cfg.image_size_hw[1])])
             manifest.setdefault("action_nvec", [int(x) for x in nvec.tolist()])

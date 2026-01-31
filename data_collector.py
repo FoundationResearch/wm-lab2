@@ -39,6 +39,7 @@ def main() -> int:
     # Env
     parser.add_argument("--task_id", type=str, default="open-ended")
     parser.add_argument("--image_size_hw", type=str, default="160,256", help="H,W (MineDojo uses (H,W)).")
+    parser.add_argument("--cam_interval", type=float, default=15.0, help="MineDojo camera discretization interval in degrees.")
 
     # Policy
     parser.add_argument(
@@ -73,6 +74,9 @@ def main() -> int:
         # hold_frames: wasd12hold defaults to 12
         if policy_l in ("wasd12hold", "wasd12holdrandview") and int(args.hold_frames) == 4:
             args.hold_frames = 12
+        # view speed: wasd12holdrandview defaults to 5x slower camera (15 -> 3 degrees)
+        if policy_l == "wasd12holdrandview" and float(args.cam_interval) == 15.0:
+            args.cam_interval = 3.0
 
     if args.out_root is None:
         args.out_root = f"./data/{policy_l}"
@@ -89,6 +93,7 @@ def main() -> int:
         no_progress=args.no_progress,
         task_id=args.task_id,
         image_size_hw=(int(h), int(w)),
+        cam_interval=float(args.cam_interval),
         policy=args.policy,
         policy_entrypoint=args.policy_entrypoint,
         active_dims=active_dims,

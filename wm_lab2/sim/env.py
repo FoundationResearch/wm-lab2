@@ -10,6 +10,7 @@ import numpy as np
 class EnvSpec:
     task_id: str = "open-ended"
     image_size_hw: Tuple[int, int] = (160, 256)
+    cam_interval: float = 15.0
 
 
 def make_env(spec: EnvSpec) -> Tuple[Any, np.ndarray, np.ndarray]:
@@ -22,7 +23,7 @@ def make_env(spec: EnvSpec) -> Tuple[Any, np.ndarray, np.ndarray]:
     """
     import minedojo  # type: ignore
 
-    env = minedojo.make(task_id=spec.task_id, image_size=spec.image_size_hw)
+    env = minedojo.make(task_id=spec.task_id, image_size=spec.image_size_hw, cam_interval=spec.cam_interval)
 
     if not hasattr(env.action_space, "nvec"):
         raise RuntimeError(f"Expected env.action_space to have nvec (MultiDiscrete), got: {type(env.action_space)}")
