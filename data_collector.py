@@ -40,6 +40,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Collect MineDojo trajectories.")
     parser.add_argument("--num_episodes", type=int, default=10)
     parser.add_argument("--num_workers", type=int, default=1, help="Number of parallel Minecraft env workers.")
+    parser.add_argument(
+        "--schedule_mode",
+        type=str,
+        default="dynamic",
+        help="Parallel episode scheduling: dynamic (workers pull from shared queue) | static (pre-split evenly).",
+    )
     parser.add_argument("--max_steps", type=int, default=125)
     parser.add_argument("--fps", type=int, default=25)
     parser.add_argument("--seed", type=int, default=0)
@@ -143,6 +149,7 @@ def main() -> int:
         out_root=args.out_root,
         run_name=_sanitize_run_name(args.run_name),
         no_progress=args.no_progress,
+        schedule_mode=str(args.schedule_mode).strip().lower(),
         task_id=args.task_id,
         image_size_hw=(int(h), int(w)),
         cam_interval=float(args.cam_interval),

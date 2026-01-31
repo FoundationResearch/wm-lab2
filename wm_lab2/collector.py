@@ -48,6 +48,10 @@ class CollectConfig:
     # Parallel safety: serialize the first MineDojo env.reset() across workers to avoid
     # concurrent ForgeGradle/Malmo cache initialization corruption.
     serialize_env_init: bool = True
+    # Episode scheduling for parallel collection:
+    # - "dynamic": workers pull next episode index from a shared queue when ready (recommended).
+    # - "static": pre-split episodes evenly across workers at startup (legacy behavior).
+    schedule_mode: str = "dynamic"
     # Xvfb support (headless)
     xvfb_per_worker: bool = False
     xvfb_display_base: int = 90
@@ -206,7 +210,15 @@ def _collect_single_process(cfg: CollectConfig) -> int:
     return 0
 
 
-def _worker_main(cfg: CollectConfig, *, worker_id: int, num_eps: int, global_offset: int, progress_q) -> None:
+def _worker_main(
+    cfg: CollectConfig,
+    *,
+    worker_id: int,
+    work_q=None,
+    num_eps: Optional[int] = None,
+    global_offset: int = 0,
+    progress_q=None,
+) -> None:
     """
     One worker process: owns exactly one MineDojo env (=> one MC instance) and collects `num_eps` episodes.
     """
@@ -262,46 +274,74 @@ def _worker_main(cfg: CollectConfig, *, worker_id: int, num_eps: int, global_off
                 flush=True,
             )
 
-            for local_idx in range(int(num_eps)):
-                global_idx = int(global_offset) + int(local_idx)
+            local_idx = 0
+            while True:
+                if work_q is None:
+                    # Legacy static assignment.
+                    if num_eps is None:
+                        break
+                    if local_idx >= int(num_eps):
+                        break
+                    global_idx = int(global_offset) + int(local_idx)
+                else:
+                    # Dynamic scheduling: pull next global episode index.
+                    item = work_q.get()
+                    if item is None:
+                        # Sentinel: no more work.
+                        try:
+                            work_q.task_done()
+                        except Exception:
+                            pass
+                        return
+                    global_idx = int(item)
+
                 ep_stamp = utc_timestamp()
                 episode_dir = os.path.join(cfg.out_root, f"episode_{ep_stamp}_w{worker_id:02d}_{global_idx:07d}{run_suffix}")
                 ensure_dir(episode_dir)
 
-                manifest = build_manifest(
-                    episode_index=global_idx,
-                    timestamp_utc=ep_stamp,
-                    seed=int(worker_seed),
-                    max_steps=cfg.max_steps,
-                    fps=cfg.fps,
-                    task_id=cfg.task_id,
-                    image_size_hw=cfg.image_size_hw,
-                    action_nvec=[int(x) for x in nvec.tolist()],
-                    policy_name=cfg.policy,
-                )
-                manifest["cam_interval"] = float(cfg.cam_interval)
-                manifest["num_workers"] = int(cfg.num_workers)
-                manifest["worker_id"] = int(worker_id)
-                manifest["worker_seed"] = int(worker_seed)
-                manifest["root_seed"] = int(cfg.seed)
-                manifest["episode_index_local"] = int(local_idx)
-                manifest["pitch_min_deg"] = float(cfg.pitch_min_deg)
-                manifest["pitch_max_deg"] = float(cfg.pitch_max_deg)
-                manifest["xvfb_per_worker"] = bool(cfg.xvfb_per_worker)
-                manifest["display"] = os.environ.get("DISPLAY", "")
-                manifest["run_name"] = str(cfg.run_name)
-                # Back-compat keys (kept from original script)
-                manifest.setdefault("image_size_hw", [int(cfg.image_size_hw[0]), int(cfg.image_size_hw[1])])
-                manifest.setdefault("action_nvec", [int(x) for x in nvec.tolist()])
+                try:
+                    manifest = build_manifest(
+                        episode_index=global_idx,
+                        timestamp_utc=ep_stamp,
+                        seed=int(worker_seed),
+                        max_steps=cfg.max_steps,
+                        fps=cfg.fps,
+                        task_id=cfg.task_id,
+                        image_size_hw=cfg.image_size_hw,
+                        action_nvec=[int(x) for x in nvec.tolist()],
+                        policy_name=cfg.policy,
+                    )
+                    manifest["cam_interval"] = float(cfg.cam_interval)
+                    manifest["num_workers"] = int(cfg.num_workers)
+                    manifest["worker_id"] = int(worker_id)
+                    manifest["worker_seed"] = int(worker_seed)
+                    manifest["root_seed"] = int(cfg.seed)
+                    manifest["episode_index_local"] = int(local_idx)
+                    manifest["pitch_min_deg"] = float(cfg.pitch_min_deg)
+                    manifest["pitch_max_deg"] = float(cfg.pitch_max_deg)
+                    manifest["xvfb_per_worker"] = bool(cfg.xvfb_per_worker)
+                    manifest["display"] = os.environ.get("DISPLAY", "")
+                    manifest["run_name"] = str(cfg.run_name)
+                    manifest["schedule_mode"] = str(getattr(cfg, "schedule_mode", "dynamic"))
+                    # Back-compat keys (kept from original script)
+                    manifest.setdefault("image_size_hw", [int(cfg.image_size_hw[0]), int(cfg.image_size_hw[1])])
+                    manifest.setdefault("action_nvec", [int(x) for x in nvec.tolist()])
 
-                with open(os.path.join(episode_dir, "manifest.json"), "w", encoding="utf-8") as f:
-                    json.dump(manifest, f, indent=2)
+                    with open(os.path.join(episode_dir, "manifest.json"), "w", encoding="utf-8") as f:
+                        json.dump(manifest, f, indent=2)
 
-                episode = run_episode(env=env, policy=policy, max_steps=cfg.max_steps)
-                write_episode(out_dir=episode_dir, episode=episode, fps=cfg.fps)
+                    episode = run_episode(env=env, policy=policy, max_steps=cfg.max_steps)
+                    write_episode(out_dir=episode_dir, episode=episode, fps=cfg.fps)
+                finally:
+                    if work_q is not None:
+                        try:
+                            work_q.task_done()
+                        except Exception:
+                            pass
 
                 if progress_q is not None:
                     progress_q.put(1)
+                local_idx += 1
     finally:
         if env is not None:
             try:
@@ -317,32 +357,62 @@ def _collect_parallel(cfg: CollectConfig) -> int:
     if num_workers <= 1:
         return _collect_single_process(cfg)
 
-    # Split episodes across workers as evenly as possible.
-    n = int(cfg.num_episodes)
-    base = n // num_workers
-    rem = n % num_workers
-    counts = [base + (1 if i < rem else 0) for i in range(num_workers)]
-    offsets = []
-    cur = 0
-    for c in counts:
-        offsets.append(cur)
-        cur += c
-
     ctx = mp.get_context("spawn")
     progress_q = ctx.Queue()
     procs = []
 
-    for wid in range(num_workers):
-        c = int(counts[wid])
-        if c <= 0:
-            continue
-        p = ctx.Process(
-            target=_worker_main,
-            kwargs=dict(cfg=cfg, worker_id=int(wid), num_eps=c, global_offset=int(offsets[wid]), progress_q=progress_q),
-            daemon=False,
-        )
-        p.start()
-        procs.append(p)
+    schedule_mode = str(getattr(cfg, "schedule_mode", "dynamic")).strip().lower()
+    if schedule_mode not in ("dynamic", "static"):
+        raise ValueError(f"Unknown schedule_mode={schedule_mode!r} (expected 'dynamic' or 'static').")
+
+    work_q = None
+    if schedule_mode == "dynamic":
+        # Shared FIFO queue of global episode indices. Workers pull when ready, which avoids
+        # large bubbles caused by slow worker initialization.
+        work_q = ctx.JoinableQueue()
+        for ep_idx in range(int(cfg.num_episodes)):
+            work_q.put(int(ep_idx))
+        # Sentinels: one per worker so all workers can exit cleanly once the queue is drained.
+        for _ in range(num_workers):
+            work_q.put(None)
+
+        for wid in range(num_workers):
+            p = ctx.Process(
+                target=_worker_main,
+                kwargs=dict(cfg=cfg, worker_id=int(wid), work_q=work_q, progress_q=progress_q),
+                daemon=False,
+            )
+            p.start()
+            procs.append(p)
+    else:
+        # Legacy behavior: split episodes across workers as evenly as possible.
+        n = int(cfg.num_episodes)
+        base = n // num_workers
+        rem = n % num_workers
+        counts = [base + (1 if i < rem else 0) for i in range(num_workers)]
+        offsets = []
+        cur = 0
+        for c in counts:
+            offsets.append(cur)
+            cur += c
+
+        for wid in range(num_workers):
+            c = int(counts[wid])
+            if c <= 0:
+                continue
+            p = ctx.Process(
+                target=_worker_main,
+                kwargs=dict(
+                    cfg=cfg,
+                    worker_id=int(wid),
+                    num_eps=c,
+                    global_offset=int(offsets[wid]),
+                    progress_q=progress_q,
+                ),
+                daemon=False,
+            )
+            p.start()
+            procs.append(p)
 
     def _terminate_all() -> None:
         for p in procs:
@@ -388,6 +458,12 @@ def _collect_parallel(cfg: CollectConfig) -> int:
             progress_q.join_thread()
         except Exception:
             pass
+        if work_q is not None:
+            try:
+                work_q.close()
+                work_q.join_thread()
+            except Exception:
+                pass
 
     bad = [p for p in procs if p.exitcode not in (0, None)]
     if bad:
