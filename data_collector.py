@@ -46,6 +46,17 @@ def main() -> int:
         default="dynamic",
         help="Parallel episode scheduling: dynamic (workers pull from shared queue) | static (pre-split evenly).",
     )
+    parser.add_argument(
+        "--max_episode_retries",
+        type=int,
+        default=0,
+        help="Dynamic schedule only. Retry a failed episode up to N times; 0 means retry forever.",
+    )
+    parser.add_argument(
+        "--resume",
+        action="store_true",
+        help="Dynamic schedule only. Treat --num_episodes as the target total and only collect missing episode_index under out_root (matching --run_name when set).",
+    )
     parser.add_argument("--max_steps", type=int, default=125)
     parser.add_argument("--fps", type=int, default=25)
     parser.add_argument("--seed", type=int, default=0)
@@ -150,6 +161,8 @@ def main() -> int:
         run_name=_sanitize_run_name(args.run_name),
         no_progress=args.no_progress,
         schedule_mode=str(args.schedule_mode).strip().lower(),
+        max_episode_retries=int(args.max_episode_retries),
+        resume=bool(args.resume),
         task_id=args.task_id,
         image_size_hw=(int(h), int(w)),
         cam_interval=float(args.cam_interval),

@@ -3,10 +3,11 @@ from __future__ import annotations
 import json
 import os
 import traceback
+from collections import defaultdict
 from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass
 from subprocess import DEVNULL
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
 from tqdm import tqdm
@@ -48,10 +49,18 @@ class CollectConfig:
     # Parallel safety: serialize the first MineDojo env.reset() across workers to avoid
     # concurrent ForgeGradle/Malmo cache initialization corruption.
     serialize_env_init: bool = True
-    # Episode scheduling for parallel collection:
-    # - "dynamic": workers pull next episode index from a shared queue when ready (recommended).
+    # Parallel scheduling:
+    # - "dynamic": workers pull next episode index from a shared queue when ready.
     # - "static": pre-split episodes evenly across workers at startup (legacy behavior).
     schedule_mode: str = "dynamic"
+    # Fault tolerance (dynamic schedule only):
+    # - If a worker crashes mid-episode, that in-flight episode index is re-queued.
+    # - max_episode_retries == 0 means retry forever.
+    max_episode_retries: int = 0
+    # Resume support (dynamic schedule only):
+    # If True, treat `num_episodes` as the target total and only collect missing episode_index
+    # under out_root (matching run_name when provided).
+    resume: bool = False
     # Xvfb support (headless)
     xvfb_per_worker: bool = False
     xvfb_display_base: int = 90
@@ -214,13 +223,16 @@ def _worker_main(
     cfg: CollectConfig,
     *,
     worker_id: int,
-    work_q=None,
     num_eps: Optional[int] = None,
     global_offset: int = 0,
+    work_q=None,
+    event_q=None,
     progress_q=None,
 ) -> None:
     """
-    One worker process: owns exactly one MineDojo env (=> one MC instance) and collects `num_eps` episodes.
+    One worker process: owns exactly one MineDojo env (=> one MC instance).
+    - Static mode: collects `num_eps` episodes starting at `global_offset`.
+    - Dynamic mode: pulls global episode indices from `work_q` until it receives a sentinel `None`.
     """
     ensure_dir(cfg.out_root)
     worker_seed = _seed_for_worker(cfg.seed, worker_id)
@@ -277,23 +289,23 @@ def _worker_main(
             local_idx = 0
             while True:
                 if work_q is None:
-                    # Legacy static assignment.
                     if num_eps is None:
                         break
                     if local_idx >= int(num_eps):
                         break
                     global_idx = int(global_offset) + int(local_idx)
                 else:
-                    # Dynamic scheduling: pull next global episode index.
                     item = work_q.get()
                     if item is None:
-                        # Sentinel: no more work.
-                        try:
-                            work_q.task_done()
-                        except Exception:
-                            pass
+                        # Sentinel: stop this worker.
                         return
                     global_idx = int(item)
+
+                if event_q is not None:
+                    try:
+                        event_q.put(("start", int(worker_id), int(global_idx)))
+                    except Exception:
+                        pass
 
                 ep_stamp = utc_timestamp()
                 episode_dir = os.path.join(cfg.out_root, f"episode_{ep_stamp}_w{worker_id:02d}_{global_idx:07d}{run_suffix}")
@@ -332,16 +344,25 @@ def _worker_main(
 
                     episode = run_episode(env=env, policy=policy, max_steps=cfg.max_steps)
                     write_episode(out_dir=episode_dir, episode=episode, fps=cfg.fps)
-                finally:
-                    if work_q is not None:
+                except BaseException as e:
+                    if event_q is not None:
                         try:
-                            work_q.task_done()
+                            event_q.put(("fail", int(worker_id), int(global_idx), repr(e)))
                         except Exception:
                             pass
-
-                if progress_q is not None:
-                    progress_q.put(1)
-                local_idx += 1
+                    # Most MineDojo failures (socket timeout, instance crash) leave the env in a bad state.
+                    # Crash the worker so the parent can re-queue the episode and continue with others.
+                    raise
+                else:
+                    if event_q is not None:
+                        try:
+                            event_q.put(("done", int(worker_id), int(global_idx)))
+                        except Exception:
+                            pass
+                    if progress_q is not None:
+                        progress_q.put(1)
+                finally:
+                    local_idx += 1
     finally:
         if env is not None:
             try:
@@ -358,80 +379,247 @@ def _collect_parallel(cfg: CollectConfig) -> int:
         return _collect_single_process(cfg)
 
     ctx = mp.get_context("spawn")
-    progress_q = ctx.Queue()
-    procs = []
-
     schedule_mode = str(getattr(cfg, "schedule_mode", "dynamic")).strip().lower()
     if schedule_mode not in ("dynamic", "static"):
         raise ValueError(f"Unknown schedule_mode={schedule_mode!r} (expected 'dynamic' or 'static').")
 
-    work_q = None
-    if schedule_mode == "dynamic":
-        # Shared FIFO queue of global episode indices. Workers pull when ready, which avoids
-        # large bubbles caused by slow worker initialization.
-        work_q = ctx.JoinableQueue()
-        for ep_idx in range(int(cfg.num_episodes)):
-            work_q.put(int(ep_idx))
-        # Sentinels: one per worker so all workers can exit cleanly once the queue is drained.
-        for _ in range(num_workers):
-            work_q.put(None)
+    procs: dict[int, Any] = {}
 
-        for wid in range(num_workers):
-            p = ctx.Process(
-                target=_worker_main,
-                kwargs=dict(cfg=cfg, worker_id=int(wid), work_q=work_q, progress_q=progress_q),
-                daemon=False,
-            )
-            p.start()
-            procs.append(p)
-    else:
-        # Legacy behavior: split episodes across workers as evenly as possible.
-        n = int(cfg.num_episodes)
-        base = n // num_workers
-        rem = n % num_workers
-        counts = [base + (1 if i < rem else 0) for i in range(num_workers)]
-        offsets = []
-        cur = 0
-        for c in counts:
-            offsets.append(cur)
-            cur += c
-
-        for wid in range(num_workers):
-            c = int(counts[wid])
-            if c <= 0:
-                continue
-            p = ctx.Process(
-                target=_worker_main,
-                kwargs=dict(
-                    cfg=cfg,
-                    worker_id=int(wid),
-                    num_eps=c,
-                    global_offset=int(offsets[wid]),
-                    progress_q=progress_q,
-                ),
-                daemon=False,
-            )
-            p.start()
-            procs.append(p)
+    def _start_worker(wid: int, *, work_q=None, event_q=None, progress_q=None, num_eps: Optional[int] = None, offset: int = 0):
+        p = ctx.Process(
+            target=_worker_main,
+            kwargs=dict(
+                cfg=cfg,
+                worker_id=int(wid),
+                num_eps=(int(num_eps) if num_eps is not None else None),
+                global_offset=int(offset),
+                work_q=work_q,
+                event_q=event_q,
+                progress_q=progress_q,
+            ),
+            daemon=False,
+        )
+        p.start()
+        procs[int(wid)] = p
 
     def _terminate_all() -> None:
-        for p in procs:
+        for p in procs.values():
             try:
                 if p.is_alive():
                     p.terminate()
             except Exception:
                 pass
-        for p in procs:
+        for p in procs.values():
             try:
                 p.join(timeout=5)
             except Exception:
                 pass
 
+    # --- Dynamic schedule: shared queue + crash re-queue ---
+    if schedule_mode == "dynamic":
+        total = int(cfg.num_episodes)
+        work_q = ctx.Queue()
+        event_q = ctx.Queue()
+
+        def _load_existing_episode_indices() -> set[int]:
+            existing: set[int] = set()
+            try:
+                if not bool(getattr(cfg, "resume", False)):
+                    return existing
+                out_root = str(cfg.out_root)
+                run_name = str(getattr(cfg, "run_name", "")).strip()
+                if not os.path.isdir(out_root):
+                    return existing
+                for name in os.listdir(out_root):
+                    if not name.startswith("episode_"):
+                        continue
+                    mpath = os.path.join(out_root, name, "manifest.json")
+                    if not os.path.isfile(mpath):
+                        continue
+                    try:
+                        with open(mpath, "r", encoding="utf-8") as f:
+                            m = json.load(f)
+                        if run_name:
+                            if str(m.get("run_name", "")).strip() != run_name:
+                                continue
+                        idx = m.get("episode_index", None)
+                        if idx is None:
+                            continue
+                        idx_i = int(idx)
+                        if 0 <= idx_i < total:
+                            existing.add(idx_i)
+                    except Exception:
+                        # Ignore corrupted/partial manifests.
+                        continue
+            except Exception:
+                return existing
+            return existing
+
+        existing = _load_existing_episode_indices()
+        completed: set[int] = set(existing)
+
+        remaining_indices = [i for i in range(total) if i not in existing]
+        for ep_idx in remaining_indices:
+            work_q.put(int(ep_idx))
+
+        for wid in range(num_workers):
+            _start_worker(int(wid), work_q=work_q, event_q=event_q)
+
+        in_flight: dict[int, Optional[int]] = {int(wid): None for wid in range(num_workers)}
+        permanently_failed: dict[int, str] = {}
+        attempts = defaultdict(int)
+        max_retries = int(getattr(cfg, "max_episode_retries", 0))
+
+        def _maybe_requeue(ep_idx: int, why: str) -> None:
+            if int(ep_idx) in completed:
+                return
+            attempts[int(ep_idx)] += 1
+            if max_retries > 0 and attempts[int(ep_idx)] > max_retries:
+                # Give up: mark as completed so the run can finish, and surface an error at the end.
+                completed.add(int(ep_idx))
+                permanently_failed[int(ep_idx)] = str(why)
+                return
+            work_q.put(int(ep_idx))
+
+        try:
+            if cfg.no_progress:
+                # Still need to consume events and monitor crashed workers.
+                while len(completed) < total:
+                    try:
+                        ev = event_q.get(timeout=1.0)
+                    except Exception:
+                        ev = None
+
+                    if ev is not None:
+                        kind = ev[0]
+                        if kind == "start":
+                            _, wid, ep = ev
+                            in_flight[int(wid)] = int(ep)
+                        elif kind == "done":
+                            _, wid, ep = ev
+                            in_flight[int(wid)] = None
+                            completed.add(int(ep))
+                        elif kind == "fail":
+                            _, wid, ep, err = ev
+                            in_flight[int(wid)] = None
+                            _maybe_requeue(int(ep), str(err))
+
+                    # Detect crashed workers and re-queue their in-flight episode.
+                    for wid, p in list(procs.items()):
+                        if p.exitcode is not None and p.exitcode != 0:
+                            ep = in_flight.get(int(wid))
+                            if ep is not None:
+                                in_flight[int(wid)] = None
+                                _maybe_requeue(int(ep), f"worker {wid} crashed (exitcode={p.exitcode})")
+                            procs.pop(int(wid), None)
+            else:
+                bar_total = max(0, total - len(existing))
+                with tqdm(total=bar_total, desc=f"Episodes (parallel x{num_workers}, dynamic)") as bar:
+                    while len(completed) < total:
+                        try:
+                            ev = event_q.get(timeout=1.0)
+                        except Exception:
+                            ev = None
+
+                        if ev is not None:
+                            kind = ev[0]
+                            if kind == "start":
+                                _, wid, ep = ev
+                                in_flight[int(wid)] = int(ep)
+                            elif kind == "done":
+                                _, wid, ep = ev
+                                in_flight[int(wid)] = None
+                                if int(ep) not in completed:
+                                    completed.add(int(ep))
+                                    bar.update(1)
+                            elif kind == "fail":
+                                _, wid, ep, err = ev
+                                in_flight[int(wid)] = None
+                                try:
+                                    bar.write(f"[collector] worker {wid} episode {ep} failed: {err} (re-queue)")
+                                except Exception:
+                                    pass
+                                _maybe_requeue(int(ep), str(err))
+
+                        # Detect crashed workers and re-queue their in-flight episode.
+                        for wid, p in list(procs.items()):
+                            if p.exitcode is not None and p.exitcode != 0:
+                                ep = in_flight.get(int(wid))
+                                if ep is not None:
+                                    in_flight[int(wid)] = None
+                                    try:
+                                        bar.write(
+                                            f"[collector] worker {wid} crashed (exitcode={p.exitcode}); re-queue episode {ep}"
+                                        )
+                                    except Exception:
+                                        pass
+                                    _maybe_requeue(int(ep), f"worker {wid} crashed (exitcode={p.exitcode})")
+                                procs.pop(int(wid), None)
+
+                        if not procs and len(completed) < total:
+                            raise RuntimeError(
+                                f"All workers exited but {total - len(completed)} episodes remain unfinished."
+                            )
+        except BaseException:
+            _terminate_all()
+            raise
+        finally:
+            # Ask remaining live workers to stop.
+            for _ in range(len(procs)):
+                try:
+                    work_q.put(None)
+                except Exception:
+                    pass
+            for p in procs.values():
+                try:
+                    p.join()
+                except Exception:
+                    pass
+            try:
+                event_q.close()
+                event_q.join_thread()
+            except Exception:
+                pass
+            try:
+                work_q.close()
+                work_q.join_thread()
+            except Exception:
+                pass
+
+        if permanently_failed:
+            # Keep the run going but surface a clear summary at the end.
+            keys = sorted(permanently_failed.keys())
+            msg = (
+                f"{len(keys)} episode(s) failed permanently after max_episode_retries={max_retries}: "
+                f"{keys[:20]}{' ...' if len(keys) > 20 else ''}"
+            )
+            raise RuntimeError(msg)
+        return 0
+
+    # --- Static schedule: legacy pre-split ---
+    # Split episodes across workers as evenly as possible.
+    n = int(cfg.num_episodes)
+    base = n // num_workers
+    rem = n % num_workers
+    counts = [base + (1 if i < rem else 0) for i in range(num_workers)]
+    offsets = []
+    cur = 0
+    for c in counts:
+        offsets.append(cur)
+        cur += c
+
+    progress_q = ctx.Queue()
+    for wid in range(num_workers):
+        c = int(counts[wid])
+        if c <= 0:
+            continue
+        _start_worker(int(wid), num_eps=int(c), offset=int(offsets[wid]), progress_q=progress_q)
+
     try:
         # Progress: best-effort; if disabled, just block until join.
         total = int(cfg.num_episodes)
         if cfg.no_progress:
-            for p in procs:
+            for p in procs.values():
                 p.join()
         else:
             with tqdm(total=total, desc=f"Episodes (parallel x{num_workers})") as bar:
@@ -444,9 +632,9 @@ def _collect_parallel(cfg: CollectConfig) -> int:
                     except Exception:
                         # Timeout: check for early worker exits.
                         pass
-                    if any((p.exitcode is not None and p.exitcode != 0) for p in procs):
+                    if any((p.exitcode is not None and p.exitcode != 0) for p in procs.values()):
                         break
-                for p in procs:
+                for p in procs.values():
                     p.join()
     except BaseException:
         # IMPORTANT: On Ctrl+C, terminate workers so file locks (e.g. env init lock) are released.
@@ -458,14 +646,8 @@ def _collect_parallel(cfg: CollectConfig) -> int:
             progress_q.join_thread()
         except Exception:
             pass
-        if work_q is not None:
-            try:
-                work_q.close()
-                work_q.join_thread()
-            except Exception:
-                pass
 
-    bad = [p for p in procs if p.exitcode not in (0, None)]
+    bad = [p for p in procs.values() if p.exitcode not in (0, None)]
     if bad:
         # Surface a minimal diagnostic; detailed tracebacks should be visible in stderr logs.
         raise RuntimeError(f"{len(bad)}/{len(procs)} collector workers failed (exit codes: {[p.exitcode for p in bad]}).")

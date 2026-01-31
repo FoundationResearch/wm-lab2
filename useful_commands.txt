@@ -26,6 +26,7 @@ python data_collector.py \
 
 python data_collector.py \
   --policy wasd12holdrandview --num_episodes 8192 --num_workers 32 \
+  --schedule_mode dynamic --resume \
   --xvfb_per_worker --xvfb_display_base 150 \
   --minedojo_headless auto \
   --image_size_hw 352,640 --out_root ./data/wasd12holdrandview2 \
