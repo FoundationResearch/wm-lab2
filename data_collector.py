@@ -76,6 +76,17 @@ def main() -> int:
         default=45.0,
         help="For wasd12holdrandview: maximum allowed camera pitch (deg).",
     )
+    parser.add_argument(
+        "--xvfb_per_worker",
+        action="store_true",
+        help="Start a dedicated Xvfb server per worker and set DISPLAY accordingly (useful for headless + parallel).",
+    )
+    parser.add_argument(
+        "--xvfb_display_base",
+        type=int,
+        default=90,
+        help="Base X display number for per-worker Xvfb. Worker i uses :<base+i>.",
+    )
 
     args = parser.parse_args()
 
@@ -116,6 +127,8 @@ def main() -> int:
         hold_frames=args.hold_frames,
         pitch_min_deg=float(args.pitch_min_deg),
         pitch_max_deg=float(args.pitch_max_deg),
+        xvfb_per_worker=bool(args.xvfb_per_worker),
+        xvfb_display_base=int(args.xvfb_display_base),
     )
     return collect(cfg)
 
