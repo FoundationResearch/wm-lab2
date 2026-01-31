@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import traceback
 from dataclasses import dataclass
 from typing import Optional
 
@@ -19,6 +20,7 @@ from wm_lab2.utils import ensure_dir, utc_timestamp
 @dataclass(frozen=True)
 class CollectConfig:
     num_episodes: int = 10
+    num_workers: int = 1
     max_steps: int = 125
     fps: int = 25
     seed: int = 0
@@ -36,11 +38,19 @@ class CollectConfig:
     non_stationary_prob: float = 0.95  # for safe_random
     p_jump: float = 0.05  # for wasd
     hold_frames: int = 4  # for wasd4hold
+    # Policy knobs (wasd12holdrandview)
+    pitch_min_deg: float = -45.0
+    pitch_max_deg: float = 45.0
 
 
-def collect(cfg: CollectConfig) -> int:
+def _seed_for_worker(root_seed: int, worker_id: int) -> int:
+    # A simple, stable mixing function to keep worker RNG streams apart.
+    return int(root_seed) + int(worker_id) * 1_000_003
+
+
+def _collect_single_process(cfg: CollectConfig) -> int:
     ensure_dir(cfg.out_root)
-    rng = np.random.default_rng(cfg.seed)
+    rng = np.random.default_rng(int(cfg.seed))
 
     env = None
     try:
@@ -56,6 +66,8 @@ def collect(cfg: CollectConfig) -> int:
             non_stationary_prob=cfg.non_stationary_prob,
             p_jump=cfg.p_jump,
             hold_frames=cfg.hold_frames,
+            pitch_min_deg=float(cfg.pitch_min_deg),
+            pitch_max_deg=float(cfg.pitch_max_deg),
             entrypoint=cfg.policy_entrypoint,
         )
 
@@ -80,6 +92,11 @@ def collect(cfg: CollectConfig) -> int:
                 policy_name=cfg.policy,
             )
             manifest["cam_interval"] = float(cfg.cam_interval)
+            manifest["num_workers"] = int(cfg.num_workers)
+            manifest["worker_id"] = 0
+            manifest["worker_seed"] = int(cfg.seed)
+            manifest["pitch_min_deg"] = float(cfg.pitch_min_deg)
+            manifest["pitch_max_deg"] = float(cfg.pitch_max_deg)
             # Back-compat keys (kept from original script)
             manifest.setdefault("image_size_hw", [int(cfg.image_size_hw[0]), int(cfg.image_size_hw[1])])
             manifest.setdefault("action_nvec", [int(x) for x in nvec.tolist()])
@@ -98,5 +115,151 @@ def collect(cfg: CollectConfig) -> int:
                 pass
 
     return 0
+
+
+def _worker_main(cfg: CollectConfig, *, worker_id: int, num_eps: int, global_offset: int, progress_q) -> None:
+    """
+    One worker process: owns exactly one MineDojo env (=> one MC instance) and collects `num_eps` episodes.
+    """
+    ensure_dir(cfg.out_root)
+    worker_seed = _seed_for_worker(cfg.seed, worker_id)
+    rng = np.random.default_rng(int(worker_seed))
+
+    env = None
+    try:
+        env, nvec, noop = make_env(
+            EnvSpec(task_id=cfg.task_id, image_size_hw=cfg.image_size_hw, cam_interval=float(cfg.cam_interval))
+        )
+        policy = make_policy(
+            name=cfg.policy,
+            nvec=nvec,
+            noop=noop,
+            rng=rng,
+            active_dims=cfg.active_dims,
+            non_stationary_prob=cfg.non_stationary_prob,
+            p_jump=cfg.p_jump,
+            hold_frames=cfg.hold_frames,
+            pitch_min_deg=float(cfg.pitch_min_deg),
+            pitch_max_deg=float(cfg.pitch_max_deg),
+            entrypoint=cfg.policy_entrypoint,
+        )
+
+        for local_idx in range(int(num_eps)):
+            global_idx = int(global_offset) + int(local_idx)
+            ep_stamp = utc_timestamp()
+            episode_dir = os.path.join(cfg.out_root, f"episode_{ep_stamp}_w{worker_id:02d}_{global_idx:07d}")
+            ensure_dir(episode_dir)
+
+            manifest = build_manifest(
+                episode_index=global_idx,
+                timestamp_utc=ep_stamp,
+                seed=int(worker_seed),
+                max_steps=cfg.max_steps,
+                fps=cfg.fps,
+                task_id=cfg.task_id,
+                image_size_hw=cfg.image_size_hw,
+                action_nvec=[int(x) for x in nvec.tolist()],
+                policy_name=cfg.policy,
+            )
+            manifest["cam_interval"] = float(cfg.cam_interval)
+            manifest["num_workers"] = int(cfg.num_workers)
+            manifest["worker_id"] = int(worker_id)
+            manifest["worker_seed"] = int(worker_seed)
+            manifest["root_seed"] = int(cfg.seed)
+            manifest["episode_index_local"] = int(local_idx)
+            manifest["pitch_min_deg"] = float(cfg.pitch_min_deg)
+            manifest["pitch_max_deg"] = float(cfg.pitch_max_deg)
+            # Back-compat keys (kept from original script)
+            manifest.setdefault("image_size_hw", [int(cfg.image_size_hw[0]), int(cfg.image_size_hw[1])])
+            manifest.setdefault("action_nvec", [int(x) for x in nvec.tolist()])
+
+            with open(os.path.join(episode_dir, "manifest.json"), "w", encoding="utf-8") as f:
+                json.dump(manifest, f, indent=2)
+
+            episode = run_episode(env=env, policy=policy, max_steps=cfg.max_steps)
+            write_episode(out_dir=episode_dir, episode=episode, fps=cfg.fps)
+
+            if progress_q is not None:
+                progress_q.put(1)
+    finally:
+        if env is not None:
+            try:
+                env.close()
+            except Exception:
+                pass
+
+
+def _collect_parallel(cfg: CollectConfig) -> int:
+    import multiprocessing as mp
+
+    num_workers = max(1, int(cfg.num_workers))
+    if num_workers <= 1:
+        return _collect_single_process(cfg)
+
+    # Split episodes across workers as evenly as possible.
+    n = int(cfg.num_episodes)
+    base = n // num_workers
+    rem = n % num_workers
+    counts = [base + (1 if i < rem else 0) for i in range(num_workers)]
+    offsets = []
+    cur = 0
+    for c in counts:
+        offsets.append(cur)
+        cur += c
+
+    ctx = mp.get_context("spawn")
+    progress_q = ctx.Queue()
+    procs = []
+
+    for wid in range(num_workers):
+        c = int(counts[wid])
+        if c <= 0:
+            continue
+        p = ctx.Process(
+            target=_worker_main,
+            kwargs=dict(cfg=cfg, worker_id=int(wid), num_eps=c, global_offset=int(offsets[wid]), progress_q=progress_q),
+            daemon=False,
+        )
+        p.start()
+        procs.append(p)
+
+    # Progress: best-effort; if disabled, just block until join.
+    total = int(cfg.num_episodes)
+    if cfg.no_progress:
+        for p in procs:
+            p.join()
+    else:
+        with tqdm(total=total, desc=f"Episodes (parallel x{num_workers})") as bar:
+            done = 0
+            while done < total:
+                try:
+                    inc = progress_q.get(timeout=1.0)
+                    done += int(inc)
+                    bar.update(int(inc))
+                except Exception:
+                    # Timeout: check for early worker exits.
+                    pass
+                if any((p.exitcode is not None and p.exitcode != 0) for p in procs):
+                    break
+            for p in procs:
+                p.join()
+
+    bad = [p for p in procs if p.exitcode not in (0, None)]
+    if bad:
+        # Surface a minimal diagnostic; detailed tracebacks should be visible in stderr logs.
+        raise RuntimeError(f"{len(bad)}/{len(procs)} collector workers failed (exit codes: {[p.exitcode for p in bad]}).")
+
+    return 0
+
+
+def collect(cfg: CollectConfig) -> int:
+    try:
+        if int(cfg.num_workers) <= 1:
+            return _collect_single_process(cfg)
+        return _collect_parallel(cfg)
+    except Exception:
+        # Keep a readable traceback for CLI users.
+        traceback.print_exc()
+        return 1
 
 

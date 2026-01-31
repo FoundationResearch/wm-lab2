@@ -28,6 +28,10 @@ class WASD12HoldRandViewPolicy(Policy):
 
     hold_frames: int = 12
     p_jump: float = 0.05
+    # Clamp pitch (degrees) using obs['location_stats']['pitch'].
+    # Typical Minecraft convention: pitch increases as you look down.
+    pitch_min_deg: float = -45.0
+    pitch_max_deg: float = 45.0
 
     # Indices for MineDojo NNActionSpaceWrapper layout
     idx_forward: int = 0
@@ -92,6 +96,26 @@ class WASD12HoldRandViewPolicy(Policy):
 
         # Apply constant view delta each frame by shifting around noop.
         dp, dy = self._cached_view_delta
+
+        # Optional pitch clamping based on current observation.
+        # We interpret dp<0 as "look up" and dp>0 as "look down" (see _sample_view_delta docstring).
+        try:
+            loc = obs.get("location_stats", {}) if isinstance(obs, dict) else {}
+            pitch = loc.get("pitch", None) if isinstance(loc, dict) else None
+            pitch_f = float(pitch) if pitch is not None else float("nan")
+        except Exception:
+            pitch_f = float("nan")
+
+        if not np.isnan(pitch_f):
+            lo = float(self.pitch_min_deg)
+            hi = float(self.pitch_max_deg)
+            if lo > hi:
+                lo, hi = hi, lo
+            if dp < 0 and pitch_f <= lo:
+                dp = 0
+            if dp > 0 and pitch_f >= hi:
+                dp = 0
+
         if 0 <= self.idx_pitch < len(a) and int(self.nvec[self.idx_pitch]) > 1:
             base = int(self.noop[self.idx_pitch])
             a[self.idx_pitch] = int(np.clip(base + dp, 0, int(self.nvec[self.idx_pitch]) - 1))

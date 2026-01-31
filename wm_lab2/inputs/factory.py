@@ -39,6 +39,9 @@ def make_policy(
     # WASD args
     p_jump: float = 0.05,
     hold_frames: int = 4,
+    # WASD12HoldRandView args
+    pitch_min_deg: float = -45.0,
+    pitch_max_deg: float = 45.0,
     # Custom policy factory: "pkg.module:factory"
     entrypoint: Optional[str] = None,
 ) -> Policy:
@@ -78,7 +81,15 @@ def make_policy(
         return WASD4HoldPolicy(nvec=nvec, noop=noop, rng=rng, p_jump=p_jump, hold_frames=hold_frames)
 
     if name == "wasd12holdrandview":
-        return WASD12HoldRandViewPolicy(nvec=nvec, noop=noop, rng=rng, p_jump=p_jump, hold_frames=hold_frames)
+        return WASD12HoldRandViewPolicy(
+            nvec=nvec,
+            noop=noop,
+            rng=rng,
+            p_jump=p_jump,
+            hold_frames=hold_frames,
+            pitch_min_deg=float(pitch_min_deg),
+            pitch_max_deg=float(pitch_max_deg),
+        )
 
     if name == "custom":
         if not entrypoint:

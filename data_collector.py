@@ -25,6 +25,7 @@ def _parse_int_tuple(s: str) -> Tuple[int, ...]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Collect MineDojo trajectories.")
     parser.add_argument("--num_episodes", type=int, default=10)
+    parser.add_argument("--num_workers", type=int, default=1, help="Number of parallel Minecraft env workers.")
     parser.add_argument("--max_steps", type=int, default=125)
     parser.add_argument("--fps", type=int, default=25)
     parser.add_argument("--seed", type=int, default=0)
@@ -63,6 +64,18 @@ def main() -> int:
     parser.add_argument("--non_stationary_prob", type=float, default=0.95)
     parser.add_argument("--p_jump", type=float, default=0.05)
     parser.add_argument("--hold_frames", type=int, default=4, help="For wasd4hold: hold the sampled WASD action for N frames.")
+    parser.add_argument(
+        "--pitch_min_deg",
+        type=float,
+        default=-45.0,
+        help="For wasd12holdrandview: minimum allowed camera pitch (deg).",
+    )
+    parser.add_argument(
+        "--pitch_max_deg",
+        type=float,
+        default=45.0,
+        help="For wasd12holdrandview: maximum allowed camera pitch (deg).",
+    )
 
     args = parser.parse_args()
 
@@ -86,6 +99,7 @@ def main() -> int:
 
     cfg = CollectConfig(
         num_episodes=args.num_episodes,
+        num_workers=max(1, int(args.num_workers)),
         max_steps=args.max_steps,
         fps=args.fps,
         seed=args.seed,
@@ -100,6 +114,8 @@ def main() -> int:
         non_stationary_prob=args.non_stationary_prob,
         p_jump=args.p_jump,
         hold_frames=args.hold_frames,
+        pitch_min_deg=float(args.pitch_min_deg),
+        pitch_max_deg=float(args.pitch_max_deg),
     )
     return collect(cfg)
 
