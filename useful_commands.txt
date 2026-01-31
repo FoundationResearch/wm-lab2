@@ -43,3 +43,37 @@ python playground/hyw4average/render_traj3d.py \
   --view follow --follow_look camera \
   --follow_look_down 0.4 \
   --with_rgb
+
+
+# 上传到 Hugging Face（100GB+；推荐先打包再传）
+# 详细步骤见：./huggingface_upload_README.md
+pip install -U "huggingface_hub[hf_transfer]"
+huggingface-cli login
+export HUGGINGFACE_HUB_ENABLE_HF_TRANSFER=1
+huggingface-cli repo create wm-lab2-wasd12holdrandview --type dataset
+
+# 安装 zstd（Ubuntu）
+sudo apt-get update && sudo apt-get install -y zstd
+
+# 按目录打包：alpha / beta（你已分别放在两个文件夹里）
+tar -C data --exclude=".minedojo_env_init.lock" -cf - wasd12holdrandview \
+  | zstd -T0 -19 -o data/wasd12holdrandview_alpha.tar.zst
+
+tar -C data --exclude=".minedojo_env_init.lock" -cf - wasd12holdrandview2 \
+  | zstd -T0 -19 -o data/wasd12holdrandview_beta.tar.zst
+
+zstd -t data/wasd12holdrandview_alpha.tar.zst
+zstd -t data/wasd12holdrandview_beta.tar.zst
+
+# 上传压缩包到 dataset repo
+huggingface-cli upload <YOUR_USER_OR_ORG>/wm-lab2-wasd12holdrandview \
+  data/wasd12holdrandview_alpha.tar.zst \
+  --repo-type dataset \
+  --path-in-repo archives/wasd12holdrandview_alpha.tar.zst \
+  --commit-message "Upload alpha archive"
+
+huggingface-cli upload <YOUR_USER_OR_ORG>/wm-lab2-wasd12holdrandview \
+  data/wasd12holdrandview_beta.tar.zst \
+  --repo-type dataset \
+  --path-in-repo archives/wasd12holdrandview_beta.tar.zst \
+  --commit-message "Upload beta archive"
