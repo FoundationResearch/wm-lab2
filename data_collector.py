@@ -87,6 +87,12 @@ def main() -> int:
         default=90,
         help="Base X display number for per-worker Xvfb. Worker i uses :<base+i>.",
     )
+    parser.add_argument(
+        "--minedojo_headless",
+        type=str,
+        default="auto",
+        help="Set MINEDOJO_HEADLESS (auto|0|1). 'auto' sets it when using Xvfb or when DISPLAY is missing.",
+    )
 
     args = parser.parse_args()
 
@@ -129,6 +135,7 @@ def main() -> int:
         pitch_max_deg=float(args.pitch_max_deg),
         xvfb_per_worker=bool(args.xvfb_per_worker),
         xvfb_display_base=int(args.xvfb_display_base),
+        minedojo_headless=str(args.minedojo_headless).strip().lower(),
     )
     return collect(cfg)
 

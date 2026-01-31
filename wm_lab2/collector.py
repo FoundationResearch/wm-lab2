@@ -49,6 +49,11 @@ class CollectConfig:
     # Xvfb support (headless)
     xvfb_per_worker: bool = False
     xvfb_display_base: int = 90
+    # MINEDOJO_HEADLESS handling: "auto"|"0"|"1"
+    # - If env var already set, we keep it.
+    # - If "1" or "0", we set it explicitly.
+    # - If "auto", we set it to "1" when using Xvfb or when DISPLAY is missing.
+    minedojo_headless: str = "auto"
 
 
 def _seed_for_worker(root_seed: int, worker_id: int) -> int:
@@ -125,6 +130,15 @@ def _collect_single_process(cfg: CollectConfig) -> int:
 
     env = None
     try:
+        # If user didn't export MINEDOJO_HEADLESS, decide based on config/environment.
+        if "MINEDOJO_HEADLESS" not in os.environ:
+            mode = str(cfg.minedojo_headless).strip().lower()
+            if mode in ("0", "1"):
+                os.environ["MINEDOJO_HEADLESS"] = mode
+            elif mode == "auto":
+                if os.environ.get("DISPLAY", "") == "":
+                    os.environ["MINEDOJO_HEADLESS"] = "1"
+
         env, nvec, noop = make_env(
             EnvSpec(task_id=cfg.task_id, image_size_hw=cfg.image_size_hw, cam_interval=float(cfg.cam_interval))
         )
@@ -204,6 +218,15 @@ def _worker_main(cfg: CollectConfig, *, worker_id: int, num_eps: int, global_off
             else nullcontext()
         )
         with xvfb_ctx:
+            # Decide MINEDOJO_HEADLESS if not already set by the parent shell.
+            if "MINEDOJO_HEADLESS" not in os.environ:
+                mode = str(cfg.minedojo_headless).strip().lower()
+                if mode in ("0", "1"):
+                    os.environ["MINEDOJO_HEADLESS"] = mode
+                elif mode == "auto":
+                    if bool(cfg.xvfb_per_worker) or os.environ.get("DISPLAY", "") == "":
+                        os.environ["MINEDOJO_HEADLESS"] = "1"
+
             env, nvec, noop = make_env(
                 EnvSpec(task_id=cfg.task_id, image_size_hw=cfg.image_size_hw, cam_interval=float(cfg.cam_interval))
             )
