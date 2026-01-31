@@ -19,6 +19,7 @@
   - `actions_json`
   - `hyw-4average`
   - `mg12average`
+  - `mg`
 
 执行：
 
@@ -109,5 +110,22 @@ latent 定义：
 - latent 0 对应 frames `[0..11]`
 - latent 1 对应 frames `[12..23]`
 - …
+
+---
+
+## Processor: `mg`
+
+用途：**逐帧**写出 action，并同时给出 8-direction 的 `view_action`（不做 latent 聚合）。
+
+输出目录（推荐 `--out_mode subdir`）：
+- `data/<policy>/<episode>/mg/`
+
+输出文件：
+- `mg_actions.json`
+
+每帧格式（key 是 frame index 字符串）：
+- `action`: 原始 action 向量（长度 D）
+- `move_action`: `""/W/A/S/D/WA/WD/SA/SD`
+- `view_action`: `""/up/down/left/right/up_left/up_right/down_left/down_right`
 
 

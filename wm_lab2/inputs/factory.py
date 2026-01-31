@@ -10,6 +10,7 @@ from wm_lab2.inputs.base import Policy
 from wm_lab2.inputs.safe_random import SafeRandomPolicy
 from wm_lab2.inputs.wasd import WASDOnlyPolicy
 from wm_lab2.inputs.wasd4hold import WASD4HoldPolicy
+from wm_lab2.inputs.wasd12holdrandview import WASD12HoldRandViewPolicy
 
 
 def _import_obj(spec: str) -> Any:
@@ -49,6 +50,7 @@ def make_policy(
     - name="wasd"
     - name="wasd4hold"
     - name="wasd12hold"
+    - name="wasd12holdrandview"
 
     Custom:
     - name="custom" + entrypoint="pkg.module:factory"
@@ -75,6 +77,9 @@ def make_policy(
     if name == "wasd12hold":
         return WASD4HoldPolicy(nvec=nvec, noop=noop, rng=rng, p_jump=p_jump, hold_frames=hold_frames)
 
+    if name == "wasd12holdrandview":
+        return WASD12HoldRandViewPolicy(nvec=nvec, noop=noop, rng=rng, p_jump=p_jump, hold_frames=hold_frames)
+
     if name == "custom":
         if not entrypoint:
             raise ValueError("policy 'custom' requires --policy_entrypoint pkg.module:factory")
@@ -86,6 +91,8 @@ def make_policy(
             raise ValueError("Custom factory must return a Policy-like object with .act(obs)->action.")
         return policy  # type: ignore[return-value]
 
-    raise ValueError(f"Unknown policy '{name}'. Use one of: safe_random, wasd, wasd4hold, wasd12hold, custom.")
+    raise ValueError(
+        f"Unknown policy '{name}'. Use one of: safe_random, wasd, wasd4hold, wasd12hold, wasd12holdrandview, custom."
+    )
 
 

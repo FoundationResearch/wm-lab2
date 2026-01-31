@@ -41,6 +41,7 @@ python data_collector.py --policy wasd4hold --hold_frames 4 --image_size_hw 256,
 - **`wasd`**：只动前后/左右/（可选）跳跃
 - **`wasd4hold`**：`wasd` 版本，但动作会 hold N 帧（默认 4 帧）
 - **`wasd12hold`**：`wasd` 版本，但动作会 hold 12 帧（为 12-frame latent 的 postprocess 设计）
+- **`wasd12holdrandview`**：`wasd12hold` + 每 12 帧随机一个视角方向并以恒定速度转动（小幅度）
 - **`custom`**：通过 `--policy_entrypoint pkg.module:factory` 注入自定义策略
 
 自定义策略 factory 签名：
