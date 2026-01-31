@@ -27,6 +27,8 @@ class CollectConfig:
     fps: int = 25
     seed: int = 0
     out_root: str = "./dataset"
+    # Optional user-provided tag appended to episode folder names (helps avoid collisions across runs).
+    run_name: str = ""
     no_progress: bool = False
     # Env
     task_id: str = "open-ended"
@@ -127,6 +129,7 @@ def _xvfb_display(*, display: int):
 def _collect_single_process(cfg: CollectConfig) -> int:
     ensure_dir(cfg.out_root)
     rng = np.random.default_rng(int(cfg.seed))
+    run_suffix = f"_{cfg.run_name}" if str(cfg.run_name).strip() else ""
 
     env = None
     try:
@@ -162,7 +165,7 @@ def _collect_single_process(cfg: CollectConfig) -> int:
 
         for ep_idx in outer:
             ep_stamp = utc_timestamp()
-            episode_dir = os.path.join(cfg.out_root, f"episode_{ep_stamp}_{ep_idx:05d}")
+            episode_dir = os.path.join(cfg.out_root, f"episode_{ep_stamp}_{ep_idx:05d}{run_suffix}")
             ensure_dir(episode_dir)
 
             manifest = build_manifest(
@@ -180,6 +183,7 @@ def _collect_single_process(cfg: CollectConfig) -> int:
             manifest["num_workers"] = int(cfg.num_workers)
             manifest["worker_id"] = 0
             manifest["worker_seed"] = int(cfg.seed)
+            manifest["run_name"] = str(cfg.run_name)
             manifest["pitch_min_deg"] = float(cfg.pitch_min_deg)
             manifest["pitch_max_deg"] = float(cfg.pitch_max_deg)
             # Back-compat keys (kept from original script)
@@ -212,6 +216,7 @@ def _worker_main(cfg: CollectConfig, *, worker_id: int, num_eps: int, global_off
 
     env = None
     try:
+        run_suffix = f"_{cfg.run_name}" if str(cfg.run_name).strip() else ""
         xvfb_ctx = (
             _xvfb_display(display=int(cfg.xvfb_display_base) + int(worker_id))
             if bool(cfg.xvfb_per_worker) and int(cfg.num_workers) > 1
@@ -260,7 +265,7 @@ def _worker_main(cfg: CollectConfig, *, worker_id: int, num_eps: int, global_off
             for local_idx in range(int(num_eps)):
                 global_idx = int(global_offset) + int(local_idx)
                 ep_stamp = utc_timestamp()
-                episode_dir = os.path.join(cfg.out_root, f"episode_{ep_stamp}_w{worker_id:02d}_{global_idx:07d}")
+                episode_dir = os.path.join(cfg.out_root, f"episode_{ep_stamp}_w{worker_id:02d}_{global_idx:07d}{run_suffix}")
                 ensure_dir(episode_dir)
 
                 manifest = build_manifest(
@@ -284,6 +289,7 @@ def _worker_main(cfg: CollectConfig, *, worker_id: int, num_eps: int, global_off
                 manifest["pitch_max_deg"] = float(cfg.pitch_max_deg)
                 manifest["xvfb_per_worker"] = bool(cfg.xvfb_per_worker)
                 manifest["display"] = os.environ.get("DISPLAY", "")
+                manifest["run_name"] = str(cfg.run_name)
                 # Back-compat keys (kept from original script)
                 manifest.setdefault("image_size_hw", [int(cfg.image_size_hw[0]), int(cfg.image_size_hw[1])])
                 manifest.setdefault("action_nvec", [int(x) for x in nvec.tolist()])

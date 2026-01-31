@@ -11,6 +11,7 @@ This file is intentionally a thin CLI wrapper around the layered implementation:
 from __future__ import annotations
 
 import argparse
+import re
 from typing import Optional, Tuple
 
 from wm_lab2.collector import CollectConfig, collect
@@ -20,6 +21,19 @@ def _parse_int_tuple(s: str) -> Tuple[int, ...]:
     # "0,1,2,3,4" -> (0,1,2,3,4)
     parts = [p.strip() for p in s.split(",") if p.strip()]
     return tuple(int(p) for p in parts)
+
+
+def _sanitize_run_name(name: str) -> str:
+    """
+    Keep run_name filesystem-friendly:
+    - allow: A-Z a-z 0-9 _ - .
+    - everything else becomes '-'
+    """
+    s = str(name).strip()
+    if not s:
+        return ""
+    s = re.sub(r"[^A-Za-z0-9_.-]+", "-", s)
+    return s.strip("-")
 
 
 def main() -> int:
@@ -34,6 +48,12 @@ def main() -> int:
         type=str,
         default=None,
         help="Output root. If omitted, defaults to ./data/<policy_name>/",
+    )
+    parser.add_argument(
+        "--run_name",
+        type=str,
+        default="",
+        help="Optional tag appended to episode folder names (sanitized to [A-Za-z0-9_.-]).",
     )
     parser.add_argument("--no_progress", action="store_true", help="Disable tqdm progress bars.")
 
@@ -121,6 +141,7 @@ def main() -> int:
         fps=args.fps,
         seed=args.seed,
         out_root=args.out_root,
+        run_name=_sanitize_run_name(args.run_name),
         no_progress=args.no_progress,
         task_id=args.task_id,
         image_size_hw=(int(h), int(w)),
