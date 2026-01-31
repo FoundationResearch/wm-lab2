@@ -28,12 +28,12 @@ python data_collector.py \
   --policy wasd12holdrandview --num_episodes 8192 --num_workers 32 \
   --xvfb_per_worker --xvfb_display_base 150 \
   --minedojo_headless auto \
-  --image_size_hw 352,640 --out_root ./data/wasd12holdrandview \
+  --image_size_hw 352,640 --out_root ./data/wasd12holdrandview2 \
   --fps 25 --max_steps 77 --hold_frames 12 --p_jump 0 --cam_interval 1 \
   --pitch_min_deg -30 --pitch_max_deg 30 \
   --run_name "beta"
 
-python -m wm_lab2.tools.postprocess --root ./data/wasd12holdrandview --recursive --only_ok --processor mg --out_mode subdir --overwrite
+python -m wm_lab2.tools.postprocess --root ./data/testing --recursive --only_ok --processor mg --out_mode subdir --overwrite
 
 
 python playground/hyw4average/render_traj3d.py \
