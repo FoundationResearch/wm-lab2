@@ -22,7 +22,7 @@ python data_collector.py \
   --image_size_hw 352,640 --out_root ./data/wasd12holdrandview \
   --fps 25 --max_steps 77 --hold_frames 12 --p_jump 0 --cam_interval 1 \
   --pitch_min_deg -30 --pitch_max_deg 30
-  
+
 python -m wm_lab2.tools.postprocess --root ./data/wasd12holdrandview --recursive --only_ok --processor mg --out_mode subdir --overwrite
 
 

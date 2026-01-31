@@ -251,6 +251,12 @@ def _worker_main(cfg: CollectConfig, *, worker_id: int, num_eps: int, global_off
                 with _file_lock(lock_path):
                     _ = env.reset()
 
+            # One-time init signal (useful for debugging slow startups / stuck workers).
+            print(
+                f"[collector] worker {int(worker_id)} env ready (pid={os.getpid()}, DISPLAY={os.environ.get('DISPLAY','')})",
+                flush=True,
+            )
+
             for local_idx in range(int(num_eps)):
                 global_idx = int(global_offset) + int(local_idx)
                 ep_stamp = utc_timestamp()

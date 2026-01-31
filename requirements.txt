@@ -3,7 +3,7 @@ opencv-python<4.10
 numpy>=1.20,<2.0
 tqdm>=4.64
 imageio==2.28
-imageio-ffmpeg>=0.4.8
+imageio-ffmpeg==0.4.8
 # 3D trajectory rendering (optional)
 open3d>=0.18
 # NOTE: MineDojo 0.2.1 is incompatible with NumPy>=2.0 (uses removed np.unicode_).

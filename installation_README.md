@@ -21,4 +21,4 @@ pip install minedojo
 pip install "opencv-python<4.10"
 pip install "numpy>=1.20,<2.0"
 pip install "imageio==2.28"
-
+pip install "imageio-ffmpeg==0.4.8"
