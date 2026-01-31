@@ -332,26 +332,50 @@ def _collect_parallel(cfg: CollectConfig) -> int:
         p.start()
         procs.append(p)
 
-    # Progress: best-effort; if disabled, just block until join.
-    total = int(cfg.num_episodes)
-    if cfg.no_progress:
+    def _terminate_all() -> None:
         for p in procs:
-            p.join()
-    else:
-        with tqdm(total=total, desc=f"Episodes (parallel x{num_workers})") as bar:
-            done = 0
-            while done < total:
-                try:
-                    inc = progress_q.get(timeout=1.0)
-                    done += int(inc)
-                    bar.update(int(inc))
-                except Exception:
-                    # Timeout: check for early worker exits.
-                    pass
-                if any((p.exitcode is not None and p.exitcode != 0) for p in procs):
-                    break
+            try:
+                if p.is_alive():
+                    p.terminate()
+            except Exception:
+                pass
+        for p in procs:
+            try:
+                p.join(timeout=5)
+            except Exception:
+                pass
+
+    try:
+        # Progress: best-effort; if disabled, just block until join.
+        total = int(cfg.num_episodes)
+        if cfg.no_progress:
             for p in procs:
                 p.join()
+        else:
+            with tqdm(total=total, desc=f"Episodes (parallel x{num_workers})") as bar:
+                done = 0
+                while done < total:
+                    try:
+                        inc = progress_q.get(timeout=1.0)
+                        done += int(inc)
+                        bar.update(int(inc))
+                    except Exception:
+                        # Timeout: check for early worker exits.
+                        pass
+                    if any((p.exitcode is not None and p.exitcode != 0) for p in procs):
+                        break
+                for p in procs:
+                    p.join()
+    except BaseException:
+        # IMPORTANT: On Ctrl+C, terminate workers so file locks (e.g. env init lock) are released.
+        _terminate_all()
+        raise
+    finally:
+        try:
+            progress_q.close()
+            progress_q.join_thread()
+        except Exception:
+            pass
 
     bad = [p for p in procs if p.exitcode not in (0, None)]
     if bad:
