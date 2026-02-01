@@ -68,14 +68,14 @@ zstd -t data/wasd12holdrandview_alpha.tar.zst
 zstd -t data/wasd12holdrandview_beta.tar.zst
 
 # 上传压缩包到 dataset repo
-huggingface-cli upload alexzms/FastvideoWorldModel-MC \
+python upload_to_hf.py upload alexzms/FastvideoWorldModel-MC \
   data/wasd12holdrandview_alpha.tar.zst \
   --repo-type dataset \
-  --path-in-repo archives/wasd12holdrandview_alpha.tar.zst \
+  --path-in-repo wasd12holdrandview-96frame/alpha.tar.zst \
   --commit-message "Upload alpha archive"
 
-huggingface-cli upload alexzms/FastvideoWorldModel-MC \
+python upload_to_hf.py upload alexzms/FastvideoWorldModel-MC \
   data/wasd12holdrandview_beta.tar.zst \
   --repo-type dataset \
-  --path-in-repo archives/wasd12holdrandview_beta.tar.zst \
+  --path-in-repo wasd12holdrandview-96frame/beta.tar.zst \
   --commit-message "Upload beta archive"

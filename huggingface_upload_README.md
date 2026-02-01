@@ -76,19 +76,19 @@ zstd -t data/wasd12holdrandview_beta.tar.zst
 
 ## 4) 上传压缩包到 Hugging Face
 
-把两个压缩包上传到 dataset repo 的 `archives/` 目录下：
+把两个压缩包上传到 dataset repo 的 `wasd12holdrandview-96frame/` 目录下：
 
 ```bash
-huggingface-cli upload alexzms/FastvideoWorldModel-MC \
+python upload_to_hf.py upload alexzms/FastvideoWorldModel-MC \
   data/wasd12holdrandview_alpha.tar.zst \
   --repo-type dataset \
-  --path-in-repo archives/wasd12holdrandview_alpha.tar.zst \
+  --path-in-repo wasd12holdrandview-96frame/alpha.tar.zst \
   --commit-message "Upload alpha archive"
 
-huggingface-cli upload alexzms/FastvideoWorldModel-MC \
+python upload_to_hf.py upload alexzms/FastvideoWorldModel-MC \
   data/wasd12holdrandview_beta.tar.zst \
   --repo-type dataset \
-  --path-in-repo archives/wasd12holdrandview_beta.tar.zst \
+  --path-in-repo wasd12holdrandview-96frame/beta.tar.zst \
   --commit-message "Upload beta archive"
 ```
 
@@ -106,6 +106,34 @@ huggingface-cli upload alexzms/FastvideoWorldModel-MC \
 - 每个压缩包里包含什么结构（`episode_*/{manifest.json,data.npz,video.mp4,...}`）
 - 采集参数（fps、分辨率、max_steps、policy 等）
 - 许可证/使用限制
+
+## 常见问题：`huggingface-cli: command not found` / `ModuleNotFoundError: huggingface_hub...`
+
+这通常意味着：你安装 `huggingface_hub` 的 Python 环境，和你当前运行命令的 Python 环境**不是同一个**（尤其是 conda）。
+
+推荐在当前环境里用下面方式安装（最不容易装错环境）：
+
+```bash
+python -m pip install -U "huggingface_hub[hf_transfer]"
+python -c "import huggingface_hub as h; print(h.__version__, h.__file__)"
+which huggingface-cli || true
+```
+
+如果你就是想完全绕过 `huggingface-cli`（不依赖 PATH），推荐直接用本仓库提供的脚本：
+
+```bash
+python upload_to_hf.py upload alexzms/FastvideoWorldModel-MC \
+  data/wasd12holdrandview_alpha.tar.zst \
+  --repo-type dataset \
+  --path-in-repo wasd12holdrandview-96frame/alpha.tar.zst \
+  --commit-message "Upload alpha archive"
+```
+
+（小技巧）你也可以用脚本的默认模式一次性传 alpha+beta：
+
+```bash
+python upload_to_hf.py
+```
 
 
 
