@@ -21,7 +21,11 @@ if ! command -v zstd >/dev/null 2>&1; then
 fi
 
 # Change this one word to "beta", "gamma", etc.
-RUN_WORD="alpha"
+RUN_WORD="beta"
+
+# Use the first letter of RUN_WORD to namespace output dirs (e.g., beta -> bj1/bj2/bj3).
+RUN_LETTER="${RUN_WORD:0:1}"
+RUN_TAG="${RUN_LETTER}j"
 
 # Used for log/package filenames (no spaces).
 EXP_NAME="${RUN_WORD}jump"
@@ -36,52 +40,52 @@ COMMON_ARGS=(
   --pitch_min_deg -30 --pitch_max_deg 30
 )
 
-# 1 (aj1)
+# 1 (${RUN_TAG}1)
 python data_collector.py \
   "${COMMON_ARGS[@]}" \
-  --out_root "./data/wasd12holdrandviewaj1" \
-  --run_name "${RUN_WORD} jump1" 2>&1 | tee -a "logs/overnight/${EXP_NAME}_aj1.log"
+  --out_root "./data/wasd12holdrandview${RUN_TAG}1" \
+  --run_name "${RUN_WORD} jump1" 2>&1 | tee -a "logs/overnight/${EXP_NAME}_${RUN_TAG}1.log"
 
 # mg postprocess (writes mg/ subdir inside each episode folder)
 python -m wm_lab2.tools.postprocess \
-  --root "./data/wasd12holdrandviewaj1" --recursive --only_ok \
-  --processor mg --out_mode subdir --overwrite 2>&1 | tee -a "logs/overnight/${EXP_NAME}_aj1_mg.log"
+  --root "./data/wasd12holdrandview${RUN_TAG}1" --recursive --only_ok \
+  --processor mg --out_mode subdir --overwrite 2>&1 | tee -a "logs/overnight/${EXP_NAME}_${RUN_TAG}1_mg.log"
 
 # package (no auto-upload)
-tar -C "./data/wasd12holdrandviewaj1" --exclude=".minedojo_env_init.lock" \
+tar -C "./data/wasd12holdrandview${RUN_TAG}1" --exclude=".minedojo_env_init.lock" \
   --transform="s,^,${EXP_NAME}1/," \
   -cf - . \
   | zstd -T0 -19 -o "./data/${EXP_NAME}1.tar.zst" \
-  2>&1 | tee -a "logs/overnight/${EXP_NAME}_aj1_pack.log"
+  2>&1 | tee -a "logs/overnight/${EXP_NAME}_${RUN_TAG}1_pack.log"
 
-# 2 (aj2)
+# 2 (${RUN_TAG}2)
 python data_collector.py \
   "${COMMON_ARGS[@]}" \
-  --out_root "./data/wasd12holdrandviewaj2" \
-  --run_name "${RUN_WORD} jump2" 2>&1 | tee -a "logs/overnight/${EXP_NAME}_aj2.log"
+  --out_root "./data/wasd12holdrandview${RUN_TAG}2" \
+  --run_name "${RUN_WORD} jump2" 2>&1 | tee -a "logs/overnight/${EXP_NAME}_${RUN_TAG}2.log"
 
 python -m wm_lab2.tools.postprocess \
-  --root "./data/wasd12holdrandviewaj2" --recursive --only_ok \
-  --processor mg --out_mode subdir --overwrite 2>&1 | tee -a "logs/overnight/${EXP_NAME}_aj2_mg.log"
+  --root "./data/wasd12holdrandview${RUN_TAG}2" --recursive --only_ok \
+  --processor mg --out_mode subdir --overwrite 2>&1 | tee -a "logs/overnight/${EXP_NAME}_${RUN_TAG}2_mg.log"
 
-tar -C "./data/wasd12holdrandviewaj2" --exclude=".minedojo_env_init.lock" \
+tar -C "./data/wasd12holdrandview${RUN_TAG}2" --exclude=".minedojo_env_init.lock" \
   --transform="s,^,${EXP_NAME}2/," \
   -cf - . \
   | zstd -T0 -19 -o "./data/${EXP_NAME}2.tar.zst" \
-  2>&1 | tee -a "logs/overnight/${EXP_NAME}_aj2_pack.log"
+  2>&1 | tee -a "logs/overnight/${EXP_NAME}_${RUN_TAG}2_pack.log"
 
-# 3 (aj3)
+# 3 (${RUN_TAG}3)
 python data_collector.py \
   "${COMMON_ARGS[@]}" \
-  --out_root "./data/wasd12holdrandviewaj3" \
-  --run_name "${RUN_WORD} jump3" 2>&1 | tee -a "logs/overnight/${EXP_NAME}_aj3.log"
+  --out_root "./data/wasd12holdrandview${RUN_TAG}3" \
+  --run_name "${RUN_WORD} jump3" 2>&1 | tee -a "logs/overnight/${EXP_NAME}_${RUN_TAG}3.log"
 
 python -m wm_lab2.tools.postprocess \
-  --root "./data/wasd12holdrandviewaj3" --recursive --only_ok \
-  --processor mg --out_mode subdir --overwrite 2>&1 | tee -a "logs/overnight/${EXP_NAME}_aj3_mg.log"
+  --root "./data/wasd12holdrandview${RUN_TAG}3" --recursive --only_ok \
+  --processor mg --out_mode subdir --overwrite 2>&1 | tee -a "logs/overnight/${EXP_NAME}_${RUN_TAG}3_mg.log"
 
-tar -C "./data/wasd12holdrandviewaj3" --exclude=".minedojo_env_init.lock" \
+tar -C "./data/wasd12holdrandview${RUN_TAG}3" --exclude=".minedojo_env_init.lock" \
   --transform="s,^,${EXP_NAME}3/," \
   -cf - . \
   | zstd -T0 -19 -o "./data/${EXP_NAME}3.tar.zst" \
-  2>&1 | tee -a "logs/overnight/${EXP_NAME}_aj3_pack.log"
+  2>&1 | tee -a "logs/overnight/${EXP_NAME}_${RUN_TAG}3_pack.log"
