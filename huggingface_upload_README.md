@@ -59,10 +59,10 @@ sudo apt-get install -y zstd
 
 ```bash
 # alpha: 让压缩包内结构变成 alpha1/<episode_...>/... （只改命令行即可）
-tar -C data/wasd12holdrandviewa2 --exclude=".minedojo_env_init.lock" \
-  --transform='s,^,alpha2/,' \
+tar -C data/wasd12holdrandviewa5 --exclude=".minedojo_env_init.lock" \
+  --transform='s,^,alpha5/,' \
   -cf - . \
-  | zstd -T0 -19 -o data/alpha2.tar.zst
+  | zstd -T0 -19 -o data/alpha5.tar.zst
 
 # beta: 让压缩包内结构变成 beta1/<episode_...>/... （只改命令行即可）
 tar -C data/wasd12holdrandviewb1 --exclude=".minedojo_env_init.lock" \
@@ -74,7 +74,7 @@ tar -C data/wasd12holdrandviewb1 --exclude=".minedojo_env_init.lock" \
 可选：快速校验压缩包是否损坏：
 
 ```bash
-zstd -t data/alpha2.tar.zst
+zstd -t data/alpha5.tar.zst
 zstd -t data/beta1.tar.zst
 ```
 
@@ -84,10 +84,10 @@ zstd -t data/beta1.tar.zst
 
 ```bash
 python upload_to_hf.py upload alexzms/FastvideoWorldModel-MC \
-  data/alpha2.tar.zst \
+  data/alpha5.tar.zst \
   --repo-type dataset \
-  --path-in-repo wasd12holdrandview-96frame/alpha2.tar.zst \
-  --commit-message "Upload alpha2 archive"
+  --path-in-repo wasd12holdrandview-96frame/alpha5.tar.zst \
+  --commit-message "Upload alpha5 archive"
 
 python upload_to_hf.py upload alexzms/FastvideoWorldModel-MC \
   data/beta1.tar.zst \

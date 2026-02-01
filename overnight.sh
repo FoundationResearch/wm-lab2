@@ -1,40 +1,87 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
-# Three sequential runs (beta3 -> beta4 -> beta5).
+# Three sequential runs (1 -> 2 -> 3).
 # Edit any args below as needed; commands run strictly in order.
 
+# Ensure conda env is active for MineDojo.
+if command -v conda >/dev/null 2>&1; then
+  # shellcheck disable=SC1090
+  source "$(conda info --base)/etc/profile.d/conda.sh"
+  conda activate mc
+fi
+
 mkdir -p logs/overnight
+mkdir -p data
 
-# alpha3
-python data_collector.py \
-  --policy wasd12holdrandview --num_episodes 8192 --num_workers 32 \
-  --schedule_mode dynamic --resume \
-  --xvfb_per_worker --xvfb_display_base 90 \
-  --minedojo_headless auto \
-  --image_size_hw 352,640 --out_root ./data/wasd12holdrandviewa3 \
-  --fps 25 --max_steps 96 --hold_frames 12 --p_jump 0 --cam_interval 1 \
-  --pitch_min_deg -30 --pitch_max_deg 30 \
-  --run_name "alpha3" 2>&1 | tee -a logs/overnight/alpha3.log
+if ! command -v zstd >/dev/null 2>&1; then
+  echo "[overnight] ERROR: zstd not found. Install it first:" >&2
+  echo "  sudo apt-get update && sudo apt-get install -y zstd" >&2
+  exit 1
+fi
 
-# alpha4
-python data_collector.py \
-  --policy wasd12holdrandview --num_episodes 8192 --num_workers 32 \
-  --schedule_mode dynamic --resume \
-  --xvfb_per_worker --xvfb_display_base 90 \
-  --minedojo_headless auto \
-  --image_size_hw 352,640 --out_root ./data/wasd12holdrandviewa4 \
-  --fps 25 --max_steps 96 --hold_frames 12 --p_jump 0 --cam_interval 1 \
-  --pitch_min_deg -30 --pitch_max_deg 30 \
-  --run_name "alpha4" 2>&1 | tee -a logs/overnight/alpha4.log
+# Change this one word to "beta", "gamma", etc.
+RUN_WORD="alpha"
 
-# alpha5
+# Used for log/package filenames (no spaces).
+EXP_NAME="${RUN_WORD}jump"
+POLICY="wasd12holdrandview"
+COMMON_ARGS=(
+  --policy "${POLICY}" --num_episodes 8192 --num_workers 32
+  --schedule_mode dynamic --resume
+  --xvfb_per_worker --xvfb_display_base 90
+  --minedojo_headless auto
+  --image_size_hw 352,640
+  --fps 25 --max_steps 96 --hold_frames 12 --p_jump 0 --cam_interval 1
+  --pitch_min_deg -30 --pitch_max_deg 30
+)
+
+# 1 (aj1)
 python data_collector.py \
-  --policy wasd12holdrandview --num_episodes 8192 --num_workers 32 \
-  --schedule_mode dynamic --resume \
-  --xvfb_per_worker --xvfb_display_base 90 \
-  --minedojo_headless auto \
-  --image_size_hw 352,640 --out_root ./data/wasd12holdrandviewa5 \
-  --fps 25 --max_steps 96 --hold_frames 12 --p_jump 0 --cam_interval 1 \
-  --pitch_min_deg -30 --pitch_max_deg 30 \
-  --run_name "alpha5" 2>&1 | tee -a logs/overnight/alpha5.log
+  "${COMMON_ARGS[@]}" \
+  --out_root "./data/wasd12holdrandviewaj1" \
+  --run_name "${RUN_WORD} jump1" 2>&1 | tee -a "logs/overnight/${EXP_NAME}_aj1.log"
+
+# mg postprocess (writes mg/ subdir inside each episode folder)
+python -m wm_lab2.tools.postprocess \
+  --root "./data/wasd12holdrandviewaj1" --recursive --only_ok \
+  --processor mg --out_mode subdir --overwrite 2>&1 | tee -a "logs/overnight/${EXP_NAME}_aj1_mg.log"
+
+# package (no auto-upload)
+tar -C "./data/wasd12holdrandviewaj1" --exclude=".minedojo_env_init.lock" \
+  --transform="s,^,${EXP_NAME}1/," \
+  -cf - . \
+  | zstd -T0 -19 -o "./data/${EXP_NAME}1.tar.zst" \
+  2>&1 | tee -a "logs/overnight/${EXP_NAME}_aj1_pack.log"
+
+# 2 (aj2)
+python data_collector.py \
+  "${COMMON_ARGS[@]}" \
+  --out_root "./data/wasd12holdrandviewaj2" \
+  --run_name "${RUN_WORD} jump2" 2>&1 | tee -a "logs/overnight/${EXP_NAME}_aj2.log"
+
+python -m wm_lab2.tools.postprocess \
+  --root "./data/wasd12holdrandviewaj2" --recursive --only_ok \
+  --processor mg --out_mode subdir --overwrite 2>&1 | tee -a "logs/overnight/${EXP_NAME}_aj2_mg.log"
+
+tar -C "./data/wasd12holdrandviewaj2" --exclude=".minedojo_env_init.lock" \
+  --transform="s,^,${EXP_NAME}2/," \
+  -cf - . \
+  | zstd -T0 -19 -o "./data/${EXP_NAME}2.tar.zst" \
+  2>&1 | tee -a "logs/overnight/${EXP_NAME}_aj2_pack.log"
+
+# 3 (aj3)
+python data_collector.py \
+  "${COMMON_ARGS[@]}" \
+  --out_root "./data/wasd12holdrandviewaj3" \
+  --run_name "${RUN_WORD} jump3" 2>&1 | tee -a "logs/overnight/${EXP_NAME}_aj3.log"
+
+python -m wm_lab2.tools.postprocess \
+  --root "./data/wasd12holdrandviewaj3" --recursive --only_ok \
+  --processor mg --out_mode subdir --overwrite 2>&1 | tee -a "logs/overnight/${EXP_NAME}_aj3_mg.log"
+
+tar -C "./data/wasd12holdrandviewaj3" --exclude=".minedojo_env_init.lock" \
+  --transform="s,^,${EXP_NAME}3/," \
+  -cf - . \
+  | zstd -T0 -19 -o "./data/${EXP_NAME}3.tar.zst" \
+  2>&1 | tee -a "logs/overnight/${EXP_NAME}_aj3_pack.log"
