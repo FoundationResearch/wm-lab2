@@ -35,6 +35,8 @@ class CollectConfig:
     task_id: str = "open-ended"
     image_size_hw: tuple[int, int] = (160, 256)
     cam_interval: float = 15.0
+    # Minecraft client options (patched via MineDojo's bundled template).
+    mc_autojump: bool = True
     # Policy
     policy: str = "safe_random"  # safe_random | wasd | custom
     policy_entrypoint: Optional[str] = None  # for custom
@@ -156,7 +158,12 @@ def _collect_single_process(cfg: CollectConfig) -> int:
                     os.environ["MINEDOJO_HEADLESS"] = "1"
 
         env, nvec, noop = make_env(
-            EnvSpec(task_id=cfg.task_id, image_size_hw=cfg.image_size_hw, cam_interval=float(cfg.cam_interval))
+            EnvSpec(
+                task_id=cfg.task_id,
+                image_size_hw=cfg.image_size_hw,
+                cam_interval=float(cfg.cam_interval),
+                mc_autojump=bool(getattr(cfg, "mc_autojump", True)),
+            )
         )
         policy = make_policy(
             name=cfg.policy,
@@ -257,7 +264,12 @@ def _worker_main(
                         os.environ["MINEDOJO_HEADLESS"] = "1"
 
             env, nvec, noop = make_env(
-                EnvSpec(task_id=cfg.task_id, image_size_hw=cfg.image_size_hw, cam_interval=float(cfg.cam_interval))
+                EnvSpec(
+                    task_id=cfg.task_id,
+                    image_size_hw=cfg.image_size_hw,
+                    cam_interval=float(cfg.cam_interval),
+                    mc_autojump=bool(getattr(cfg, "mc_autojump", True)),
+                )
             )
             policy = make_policy(
                 name=cfg.policy,

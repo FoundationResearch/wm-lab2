@@ -5,12 +5,15 @@ from typing import Any, Optional, Tuple
 
 import numpy as np
 
+from wm_lab2.sim.mc_options import ensure_minedojo_autojump
+
 
 @dataclass(frozen=True)
 class EnvSpec:
     task_id: str = "open-ended"
     image_size_hw: Tuple[int, int] = (160, 256)
     cam_interval: float = 15.0
+    mc_autojump: bool = True
 
 
 def make_env(spec: EnvSpec) -> Tuple[Any, np.ndarray, np.ndarray]:
@@ -22,6 +25,9 @@ def make_env(spec: EnvSpec) -> Tuple[Any, np.ndarray, np.ndarray]:
     - env.action_space.no_op()
     """
     import minedojo  # type: ignore
+
+    # Patch MineDojo's bundled Minecraft options template before starting MC.
+    ensure_minedojo_autojump(enabled=bool(spec.mc_autojump))
 
     env = minedojo.make(task_id=spec.task_id, image_size=spec.image_size_hw, cam_interval=spec.cam_interval)
 

@@ -34,8 +34,17 @@ python data_collector.py \
   --pitch_min_deg -30 --pitch_max_deg 30 \
   --run_name "beta2"
 
-python -m wm_lab2.tools.postprocess --root ./data/wasd12holdrandviewa1 --recursive --only_ok --processor mg --out_mode subdir --overwrite
+python -m wm_lab2.tools.postprocess --root ./data/wasd12holdrandviewalphatest10 --recursive --only_ok --processor mg --out_mode subdir --overwrite
 
+python data_collector.py \
+  --policy wasd12holdrandview --num_episodes 10 --num_workers 10 \
+  --schedule_mode dynamic --resume \
+  --xvfb_per_worker --xvfb_display_base 150 \
+  --minedojo_headless auto \
+  --image_size_hw 704,1280 --out_root ./data/wasd12holdrandviewalphatest10 \
+  --fps 25 --max_steps 96 --hold_frames 12 --p_jump 0 --cam_interval 1 \
+  --pitch_min_deg -30 --pitch_max_deg 30 \
+  --run_name "alphatest10"
 
 python playground/hyw4average/render_traj3d.py \
   --episode_dir ./data/wasd4hold/episode_20260130T022835Z_00002 \

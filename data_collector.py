@@ -78,6 +78,11 @@ def main() -> int:
     parser.add_argument("--task_id", type=str, default="open-ended")
     parser.add_argument("--image_size_hw", type=str, default="160,256", help="H,W (MineDojo uses (H,W)).")
     parser.add_argument("--cam_interval", type=float, default=15.0, help="MineDojo camera discretization interval in degrees.")
+    parser.add_argument(
+        "--no_mc_autojump",
+        action="store_true",
+        help="Disable patch that sets Minecraft options.txt `autoJump:true` (MineDojo default is false).",
+    )
 
     # Policy
     parser.add_argument(
@@ -166,6 +171,7 @@ def main() -> int:
         task_id=args.task_id,
         image_size_hw=(int(h), int(w)),
         cam_interval=float(args.cam_interval),
+        mc_autojump=not bool(args.no_mc_autojump),
         policy=args.policy,
         policy_entrypoint=args.policy_entrypoint,
         active_dims=active_dims,
