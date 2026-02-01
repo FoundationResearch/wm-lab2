@@ -19,10 +19,10 @@ python data_collector.py \
   --policy wasd12holdrandview --num_episodes 8192 --num_workers 32 \
   --xvfb_per_worker --xvfb_display_base 90 \
   --minedojo_headless auto \
-  --image_size_hw 352,640 --out_root ./data/wasd12holdrandviewa1 \
+  --image_size_hw 352,640 --out_root ./data/wasd12holdrandviewa2 \
   --fps 25 --max_steps 96 --hold_frames 12 --p_jump 0 --cam_interval 1 \
   --pitch_min_deg -30 --pitch_max_deg 30 \
-  --run_name "alpha1"
+  --run_name "alpha2"
 
 python data_collector.py \
   --policy wasd12holdrandview --num_episodes 8192 --num_workers 32 \
@@ -34,7 +34,7 @@ python data_collector.py \
   --pitch_min_deg -30 --pitch_max_deg 30 \
   --run_name "beta2"
 
-python -m wm_lab2.tools.postprocess --root ./data/wasd12holdrandview --recursive --only_ok --processor mg --out_mode subdir --overwrite
+python -m wm_lab2.tools.postprocess --root ./data/wasd12holdrandviewa1 --recursive --only_ok --processor mg --out_mode subdir --overwrite
 
 
 python playground/hyw4average/render_traj3d.py \
@@ -44,38 +44,3 @@ python playground/hyw4average/render_traj3d.py \
   --view follow --follow_look camera \
   --follow_look_down 0.4 \
   --with_rgb
-
-
-# 上传到 Hugging Face（100GB+；推荐先打包再传）
-# 详细步骤见：./huggingface_upload_README.md
-pip install -U "huggingface_hub[hf_transfer]"
-export HF_TOKEN="hf_xxx你的tokenxxx"
-export HUGGINGFACE_HUB_ENABLE_HF_TRANSFER=1
-# 你的 dataset repo（已创建好）
-# alexzms/FastvideoWorldModel-MC
-
-# 安装 zstd（Ubuntu）
-sudo apt-get update && sudo apt-get install -y zstd
-
-# 按目录打包：alpha / beta（你已分别放在两个文件夹里）
-tar -C data --exclude=".minedojo_env_init.lock" -cf - wasd12holdrandview \
-  | zstd -T0 -19 -o data/wasd12holdrandview_alpha.tar.zst
-
-tar -C data --exclude=".minedojo_env_init.lock" -cf - wasd12holdrandview2 \
-  | zstd -T0 -19 -o data/wasd12holdrandview_beta.tar.zst
-
-zstd -t data/wasd12holdrandview_alpha.tar.zst
-zstd -t data/wasd12holdrandview_beta.tar.zst
-
-# 上传压缩包到 dataset repo
-python upload_to_hf.py upload alexzms/FastvideoWorldModel-MC \
-  data/wasd12holdrandview_alpha.tar.zst \
-  --repo-type dataset \
-  --path-in-repo wasd12holdrandview-96frame/alpha.tar.zst \
-  --commit-message "Upload alpha archive"
-
-python upload_to_hf.py upload alexzms/FastvideoWorldModel-MC \
-  data/wasd12holdrandview_beta.tar.zst \
-  --repo-type dataset \
-  --path-in-repo wasd12holdrandview-96frame/beta.tar.zst \
-  --commit-message "Upload beta archive"

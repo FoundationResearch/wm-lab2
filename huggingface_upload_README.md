@@ -54,24 +54,28 @@ sudo apt-get install -y zstd
 ## 3) 按目录分别打包（alpha / beta）
 
 以下命令会在 `data/` 下生成两个压缩包（并且会排除 `.minedojo_env_init.lock` 这种锁文件）：
-- `data/wasd12holdrandview_alpha.tar.zst`
-- `data/wasd12holdrandview_beta.tar.zst`
+- `data/alpha1.tar.zst`（压缩包内路径为 `alpha1/<episode_...>/...`）
+- `data/beta1.tar.zst`（压缩包内路径为 `beta1/<episode_...>/...`）
 
 ```bash
-# alpha: 打包整个目录 data/wasd12holdrandview
-tar -C data --exclude=".minedojo_env_init.lock" -cf - wasd12holdrandview \
-  | zstd -T0 -19 -o data/wasd12holdrandview_alpha.tar.zst
+# alpha: 让压缩包内结构变成 alpha1/<episode_...>/... （只改命令行即可）
+tar -C data/wasd12holdrandviewa1 --exclude=".minedojo_env_init.lock" \
+  --transform='s,^,alpha1/,' \
+  -cf - . \
+  | zstd -T0 -19 -o data/alpha1.tar.zst
 
-# beta: 打包整个目录 data/wasd12holdrandview2
-tar -C data --exclude=".minedojo_env_init.lock" -cf - wasd12holdrandview2 \
-  | zstd -T0 -19 -o data/wasd12holdrandview_beta.tar.zst
+# beta: 让压缩包内结构变成 beta1/<episode_...>/... （只改命令行即可）
+tar -C data/wasd12holdrandviewb1 --exclude=".minedojo_env_init.lock" \
+  --transform='s,^,beta1/,' \
+  -cf - . \
+  | zstd -T0 -19 -o data/beta1.tar.zst
 ```
 
 可选：快速校验压缩包是否损坏：
 
 ```bash
-zstd -t data/wasd12holdrandview_alpha.tar.zst
-zstd -t data/wasd12holdrandview_beta.tar.zst
+zstd -t data/alpha1.tar.zst
+zstd -t data/beta1.tar.zst
 ```
 
 ## 4) 上传压缩包到 Hugging Face
@@ -80,16 +84,16 @@ zstd -t data/wasd12holdrandview_beta.tar.zst
 
 ```bash
 python upload_to_hf.py upload alexzms/FastvideoWorldModel-MC \
-  data/wasd12holdrandview_alpha.tar.zst \
+  data/alpha1.tar.zst \
   --repo-type dataset \
-  --path-in-repo wasd12holdrandview-96frame/alpha.tar.zst \
-  --commit-message "Upload alpha archive"
+  --path-in-repo wasd12holdrandview-96frame/alpha1.tar.zst \
+  --commit-message "Upload alpha1 archive"
 
 python upload_to_hf.py upload alexzms/FastvideoWorldModel-MC \
-  data/wasd12holdrandview_beta.tar.zst \
+  data/beta1.tar.zst \
   --repo-type dataset \
-  --path-in-repo wasd12holdrandview-96frame/beta.tar.zst \
-  --commit-message "Upload beta archive"
+  --path-in-repo wasd12holdrandview-96frame/beta1.tar.zst \
+  --commit-message "Upload beta1 archive"
 ```
 
 ## 5) 强烈建议：不要只做“一个超大包”，最好做分片（更稳）
