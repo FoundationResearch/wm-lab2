@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 from typing import Any, Dict, Optional, Sequence
 
+from tqdm import tqdm
+
 from wm_lab2.data_index import EpisodeStatus, scan_dataset
 from wm_lab2.postprocess.registry import get_processor, list_processors
 
@@ -34,6 +36,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         help="Where to write outputs: inplace (episode dir) or subdir (episode_dir/<processor_name>/).",
     )
     p.add_argument("--overwrite", action="store_true", help="Overwrite existing derived outputs.")
+    p.add_argument("--no_progress", action="store_true", help="Disable tqdm progress bar.")
 
     args = p.parse_args(list(argv) if argv is not None else None)
 
@@ -41,15 +44,22 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     proc = get_processor(args.processor)
     episodes = scan_dataset(root, recursive=bool(args.recursive))
 
-    n_total = 0
-    n_done = 0
+    todo = []
     for ep in episodes:
         if args.only_ok and ep.status != EpisodeStatus.ok:
             continue
         if not ep.paths.npz.exists() or not ep.paths.manifest.exists():
             continue
-        n_total += 1
+        todo.append(ep)
 
+    n_total = len(todo)
+    n_done = 0
+
+    it = todo
+    if not bool(args.no_progress):
+        it = tqdm(todo, desc=f"Postprocess ({proc.name})", unit="ep")
+
+    for ep in it:
         manifest = _safe_read_json(ep.paths.manifest)
         out_dir = ep.paths.root if args.out_mode == "inplace" else (ep.paths.root / proc.name)
         proc.process(

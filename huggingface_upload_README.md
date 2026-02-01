@@ -20,10 +20,10 @@
 pip install -U "huggingface_hub[hf_transfer]"
 ```
 
-登录（会把 token 保存到本机）：
+设置 Hugging Face Token（推荐用环境变量；不需要 `huggingface-cli login`）：
 
 ```bash
-huggingface-cli login
+export HF_TOKEN="hf_xxx你的tokenxxx"
 ```
 
 可选：开启 `hf_transfer`（通常更快）：
@@ -32,15 +32,15 @@ huggingface-cli login
 export HUGGINGFACE_HUB_ENABLE_HF_TRANSFER=1
 ```
 
-## 1) 在 Hub 上创建一个 dataset repo
+## 1) 选择你的 dataset repo（你已创建好）
 
-例如建一个叫 `wm-lab2-wasd12holdrandview` 的 dataset：
+本项目使用的 dataset repo 是：
 
 ```bash
-huggingface-cli repo create wm-lab2-wasd12holdrandview --type dataset
+alexzms/FastvideoWorldModel-MC
 ```
 
-创建后地址是：`datasets/<你的用户名或组织名>/wm-lab2-wasd12holdrandview`
+所以你可以直接上传文件到这个 repo（不需要再 `repo create`）。
 
 ## 2) 安装打包工具（推荐 zstd）
 
@@ -79,13 +79,13 @@ zstd -t data/wasd12holdrandview_beta.tar.zst
 把两个压缩包上传到 dataset repo 的 `archives/` 目录下：
 
 ```bash
-huggingface-cli upload <YOUR_USER_OR_ORG>/wm-lab2-wasd12holdrandview \
+huggingface-cli upload alexzms/FastvideoWorldModel-MC \
   data/wasd12holdrandview_alpha.tar.zst \
   --repo-type dataset \
   --path-in-repo archives/wasd12holdrandview_alpha.tar.zst \
   --commit-message "Upload alpha archive"
 
-huggingface-cli upload <YOUR_USER_OR_ORG>/wm-lab2-wasd12holdrandview \
+huggingface-cli upload alexzms/FastvideoWorldModel-MC \
   data/wasd12holdrandview_beta.tar.zst \
   --repo-type dataset \
   --path-in-repo archives/wasd12holdrandview_beta.tar.zst \

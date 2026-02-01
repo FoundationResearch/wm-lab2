@@ -34,7 +34,7 @@ python data_collector.py \
   --pitch_min_deg -30 --pitch_max_deg 30 \
   --run_name "beta"
 
-python -m wm_lab2.tools.postprocess --root ./data/testing --recursive --only_ok --processor mg --out_mode subdir --overwrite
+python -m wm_lab2.tools.postprocess --root ./data/wasd12holdrandview --recursive --only_ok --processor mg --out_mode subdir --overwrite
 
 
 python playground/hyw4average/render_traj3d.py \
@@ -49,9 +49,10 @@ python playground/hyw4average/render_traj3d.py \
 # 上传到 Hugging Face（100GB+；推荐先打包再传）
 # 详细步骤见：./huggingface_upload_README.md
 pip install -U "huggingface_hub[hf_transfer]"
-huggingface-cli login
+export HF_TOKEN="hf_xxx你的tokenxxx"
 export HUGGINGFACE_HUB_ENABLE_HF_TRANSFER=1
-huggingface-cli repo create wm-lab2-wasd12holdrandview --type dataset
+# 你的 dataset repo（已创建好）
+# alexzms/FastvideoWorldModel-MC
 
 # 安装 zstd（Ubuntu）
 sudo apt-get update && sudo apt-get install -y zstd
@@ -67,13 +68,13 @@ zstd -t data/wasd12holdrandview_alpha.tar.zst
 zstd -t data/wasd12holdrandview_beta.tar.zst
 
 # 上传压缩包到 dataset repo
-huggingface-cli upload <YOUR_USER_OR_ORG>/wm-lab2-wasd12holdrandview \
+huggingface-cli upload alexzms/FastvideoWorldModel-MC \
   data/wasd12holdrandview_alpha.tar.zst \
   --repo-type dataset \
   --path-in-repo archives/wasd12holdrandview_alpha.tar.zst \
   --commit-message "Upload alpha archive"
 
-huggingface-cli upload <YOUR_USER_OR_ORG>/wm-lab2-wasd12holdrandview \
+huggingface-cli upload alexzms/FastvideoWorldModel-MC \
   data/wasd12holdrandview_beta.tar.zst \
   --repo-type dataset \
   --path-in-repo archives/wasd12holdrandview_beta.tar.zst \

@@ -3,6 +3,8 @@ ssh-keygen -t rsa -b 4096 -C "cpu2"
 cat ~/.ssh/id_rsa.pub
 git clone git@github.com:FoundationResearch/wm-lab2.git
 cd wm-lab2
+git config user.name "alexzms"
+git config user.email "3036648523@@qq.com"
 
 wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
 bash Miniconda3-latest-Linux-x86_64.sh
