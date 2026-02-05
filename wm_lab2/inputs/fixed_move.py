@@ -28,10 +28,13 @@ class FixedMovePolicy(Policy):
     strafe: int = 0
     jump: int = 0
 
-    # Optional warmup: for the first N calls to act(), force a forward(W) action.
-    # Intended to push the agent out of spawn collisions before recording starts.
+    # Optional pre-roll before "only" starts:
+    # - warmup_w_frames: force W for N frames (useful to get out of spawn collisions)
+    # - wait_noop_frames: then output noop for M frames (let physics settle)
     warmup_w_frames: int = 0
+    wait_noop_frames: int = 0
     _warmup_left: int = 0
+    _wait_left: int = 0
 
     idx_forward: int = 0
     idx_strafe: int = 1
@@ -39,12 +42,13 @@ class FixedMovePolicy(Policy):
 
     def reset(self, obs: Dict[str, Any]) -> None:
         self._warmup_left = max(0, int(self.warmup_w_frames))
+        self._wait_left = max(0, int(self.wait_noop_frames))
         return None
 
     def act(self, obs: Dict[str, Any]) -> np.ndarray:
         a = np.array(self.noop, copy=True)
 
-        # Warmup: force forward(W)=1 for a few frames.
+        # Phase 1: force forward(W)=1 for a few frames.
         if self._warmup_left > 0:
             self._warmup_left -= 1
             if 0 <= self.idx_forward < len(a) and int(self.nvec[self.idx_forward]) >= 3:
@@ -53,6 +57,11 @@ class FixedMovePolicy(Policy):
                 a[self.idx_strafe] = 0
             if 0 <= self.idx_jump < len(a) and int(self.nvec[self.idx_jump]) > 1:
                 a[self.idx_jump] = 0
+            return a.astype(np.int64, copy=False)
+
+        # Phase 2: wait with noop.
+        if self._wait_left > 0:
+            self._wait_left -= 1
             return a.astype(np.int64, copy=False)
 
         if 0 <= self.idx_forward < len(a) and int(self.nvec[self.idx_forward]) >= 3:

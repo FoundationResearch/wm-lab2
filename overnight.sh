@@ -60,6 +60,6 @@ run_one() {
     2>&1 | tee -a "logs/overnight/${exp}_pack.log"
 }
 
-run_one static 1
+# run_one static 1
 run_one wonly 2
 run_one aonly 3
