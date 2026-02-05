@@ -214,13 +214,9 @@ def _collect_single_process(cfg: CollectConfig) -> int:
             with open(os.path.join(episode_dir, "manifest.json"), "w", encoding="utf-8") as f:
                 json.dump(manifest, f, indent=2)
 
-            pol = str(cfg.policy).strip().lower()
-            if pol in ("aonly", "donly"):
-                warmup = 20  # 10W + 10noop
-            elif pol == "sonly":
-                warmup = 30  # 20W + 10noop
-            else:
-                warmup = 0
+            # Global warmup for all policies (not recorded):
+            # 0: jump, 1..9: W, 10..19: noop
+            warmup = 20
             episode = run_episode(env=env, policy=policy, max_steps=cfg.max_steps, warmup_steps=warmup)
             write_episode(out_dir=episode_dir, episode=episode, fps=cfg.fps)
 
@@ -363,13 +359,9 @@ def _worker_main(
                     with open(os.path.join(episode_dir, "manifest.json"), "w", encoding="utf-8") as f:
                         json.dump(manifest, f, indent=2)
 
-                    pol = str(cfg.policy).strip().lower()
-                    if pol in ("aonly", "donly"):
-                        warmup = 20  # 10W + 10noop
-                    elif pol == "sonly":
-                        warmup = 30  # 20W + 10noop
-                    else:
-                        warmup = 0
+                    # Global warmup for all policies (not recorded):
+                    # 0: jump, 1..9: W, 10..19: noop
+                    warmup = 20
                     episode = run_episode(env=env, policy=policy, max_steps=cfg.max_steps, warmup_steps=warmup)
                     write_episode(out_dir=episode_dir, episode=episode, fps=cfg.fps)
                 except BaseException as e:

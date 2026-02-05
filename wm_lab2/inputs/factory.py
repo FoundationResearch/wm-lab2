@@ -93,38 +93,11 @@ def make_policy(
     if name == "wonly":
         return FixedMovePolicy(nvec=nvec, noop=noop, rng=rng, forward=1, strafe=0, jump=0)
     if name == "aonly":
-        return FixedMovePolicy(
-            nvec=nvec,
-            noop=noop,
-            rng=rng,
-            forward=0,
-            strafe=1,
-            jump=0,
-            warmup_w_frames=10,
-            wait_noop_frames=10,
-        )
+        return FixedMovePolicy(nvec=nvec, noop=noop, rng=rng, forward=0, strafe=1, jump=0)
     if name == "sonly":
-        return FixedMovePolicy(
-            nvec=nvec,
-            noop=noop,
-            rng=rng,
-            forward=2,
-            strafe=0,
-            jump=0,
-            warmup_w_frames=20,
-            wait_noop_frames=10,
-        )
+        return FixedMovePolicy(nvec=nvec, noop=noop, rng=rng, forward=2, strafe=0, jump=0)
     if name == "donly":
-        return FixedMovePolicy(
-            nvec=nvec,
-            noop=noop,
-            rng=rng,
-            forward=0,
-            strafe=2,
-            jump=0,
-            warmup_w_frames=10,
-            wait_noop_frames=10,
-        )
+        return FixedMovePolicy(nvec=nvec, noop=noop, rng=rng, forward=0, strafe=2, jump=0)
 
     if name == "wasd4hold":
         return WASD4HoldPolicy(nvec=nvec, noop=noop, rng=rng, p_jump=p_jump, hold_frames=hold_frames)

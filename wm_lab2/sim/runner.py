@@ -34,9 +34,45 @@ def run_episode(
     pitch_list: List[float] = []
 
     # Warmup: step the env without recording (useful to get out of spawn collisions / UI state).
-    for _ in range(max(0, int(warmup_steps))):
-        action = policy.act(obs)
-        obs, reward, done, info = env.step(action)  # noqa: F841
+    #
+    # Default convention (used by this project):
+    # - warmup frame 0: jump once
+    # - warmup frames 1..9: hold W (forward)
+    # - warmup frames 10..19: wait/noop
+    #
+    # This is implemented at the runner level so it applies to all policies uniformly and does not
+    # depend on policy internal state.
+    for wi in range(max(0, int(warmup_steps))):
+        # Prefer policy.noop for dimensionality without advancing policy internal state.
+        try:
+            base = getattr(policy, "noop", None)
+            if base is None:
+                raise AttributeError
+            a = np.array(base, copy=True).astype(np.int64, copy=False)
+        except Exception:
+            # Fallback: ask the policy for an action (may advance internal state for custom policies).
+            a = np.asarray(policy.act(obs), dtype=np.int64).copy()
+
+        if a.ndim != 1:
+            a = a.reshape(-1).astype(np.int64, copy=False)
+
+        # Indices follow this repo's convention: forward=0, strafe=1, jump=2.
+        if wi == 0:
+            if a.shape[0] > 2:
+                a[2] = 1
+        elif 1 <= wi <= 9:
+            if a.shape[0] > 0:
+                a[0] = 1
+            if a.shape[0] > 1:
+                a[1] = 0
+            if a.shape[0] > 2:
+                a[2] = 0
+        else:
+            # wait/noop: keep as-is (already noop baseline)
+            if a.shape[0] > 2:
+                a[2] = 0
+
+        obs, reward, done, info = env.step(a)  # noqa: F841
         if bool(done):
             break
 
