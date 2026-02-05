@@ -21,9 +21,9 @@ if ! command -v zstd >/dev/null 2>&1; then
 fi
 
 # Change this one word to "beta", "gamma", etc.
-RUN_WORD="alpha"
+RUN_WORD="gamma"
 
-NUM_EPISODES=1024
+NUM_EPISODES=8192
 
 COMMON_ARGS=(
   --num_episodes "${NUM_EPISODES}" --num_workers 32
@@ -60,6 +60,6 @@ run_one() {
     2>&1 | tee -a "logs/overnight/${exp}_pack.log"
 }
 
-# run_one static 1
-run_one wonly 2
-run_one aonly 3
+run_one wasd12holdrandview 1
+run_one wasd12holdrandview 2
+run_one wasd12holdrandview 3
