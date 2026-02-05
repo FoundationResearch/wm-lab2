@@ -28,10 +28,13 @@ class WASD12HoldRandViewPolicy(Policy):
 
     hold_frames: int = 12
     p_jump: float = 0.05
-    # Clamp pitch (degrees) using obs['location_stats']['pitch'].
-    # Typical Minecraft convention: pitch increases as you look down.
+    # Pitch bounds (degrees), using obs['location_stats']['pitch'].
+    # Convention (also used by mg postprocess): pitch increases as you look down.
     pitch_min_deg: float = -45.0
     pitch_max_deg: float = 45.0
+    # MineDojo camera discretization interval in degrees (bin step ~= cam_interval_deg).
+    # Used for planning so we don't hit pitch bounds mid-hold.
+    cam_interval_deg: float = 15.0
 
     # Indices for MineDojo NNActionSpaceWrapper layout
     idx_forward: int = 0
@@ -77,12 +80,12 @@ class WASD12HoldRandViewPolicy(Policy):
         """
         Sample view delta (dpitch_bin, dyaw_bin).
 
-        If pitch is outside [pitch_min_deg, pitch_max_deg] at the *start* of a hold block,
-        constrain the next sampled direction to steer only in a subset:
-        - pitch > max: only {down, down-left, down-right}
-        - pitch < min: only {up, up-left, up-right}
+        Planning-only constraint:
+        - At the start of each hold block, predict whether applying the sampled dpitch for the
+          next `hold_frames` steps would push pitch outside [pitch_min_deg, pitch_max_deg].
+        - If so, exclude that direction from sampling.
 
-        (Block-internal per-frame clamping still applies in `act()`.)
+        This avoids "mid-block ceiling hit then freeze" behavior; we do NOT clamp dpitch per-frame.
         """
         s = int(max(1, self.view_bin_step))
 
@@ -103,12 +106,24 @@ class WASD12HoldRandViewPolicy(Policy):
             hi = float(self.pitch_max_deg)
             if lo > hi:
                 lo, hi = hi, lo
-            if pitch_f >= hi:
-                # down / down-left / down-right
-                choices = [(s, 0), (s, -s), (s, s)]
-            elif pitch_f <= lo:
-                # up / up-left / up-right
-                choices = [(-s, 0), (-s, -s), (-s, s)]
+
+            # Predict end-of-block pitch for each candidate (monotonic within block).
+            T = max(1, int(self.hold_frames))
+            deg_per_bin = float(self.cam_interval_deg)
+            planned: List[Tuple[int, int]] = []
+            for dp_bin, dy_bin in all_choices:
+                dp_deg_per_frame = float(dp_bin) * deg_per_bin
+                pitch_end = float(pitch_f) + dp_deg_per_frame * float(T)
+                if lo <= pitch_end <= hi:
+                    planned.append((dp_bin, dy_bin))
+
+            if planned:
+                choices = planned
+            else:
+                # If nothing fits (e.g., huge cam_interval or very tight bounds), fall back
+                # to yaw-only motion so pitch stays unchanged.
+                yaw_only = [(0, -s), (0, s)]
+                choices = yaw_only
 
         return choices[int(self.rng.integers(0, len(choices)))]
 
@@ -132,18 +147,6 @@ class WASD12HoldRandViewPolicy(Policy):
 
         # Apply constant view delta each frame by shifting around noop.
         dp, dy = self._cached_view_delta
-
-        # Optional pitch clamping based on current observation.
-        # We interpret dp<0 as "look up" and dp>0 as "look down" (see _sample_view_delta docstring).
-        if not np.isnan(pitch_f):
-            lo = float(self.pitch_min_deg)
-            hi = float(self.pitch_max_deg)
-            if lo > hi:
-                lo, hi = hi, lo
-            if dp < 0 and pitch_f <= lo:
-                dp = 0
-            if dp > 0 and pitch_f >= hi:
-                dp = 0
 
         if 0 <= self.idx_pitch < len(a) and int(self.nvec[self.idx_pitch]) > 1:
             base = int(self.noop[self.idx_pitch])

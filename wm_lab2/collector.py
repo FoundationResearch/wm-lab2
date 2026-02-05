@@ -38,7 +38,7 @@ class CollectConfig:
     # Minecraft client options (patched via MineDojo's bundled template).
     mc_autojump: bool = True
     # Policy
-    policy: str = "safe_random"  # safe_random | wasd | custom
+    policy: str = "safe_random"  # safe_random | static | wasd | wasdonly | wonly | aonly | sonly | donly | ... | custom
     policy_entrypoint: Optional[str] = None  # for custom
     # Policy knobs
     active_dims: Optional[tuple[int, ...]] = None  # for safe_random
@@ -176,6 +176,7 @@ def _collect_single_process(cfg: CollectConfig) -> int:
             hold_frames=cfg.hold_frames,
             pitch_min_deg=float(cfg.pitch_min_deg),
             pitch_max_deg=float(cfg.pitch_max_deg),
+            cam_interval_deg=float(cfg.cam_interval),
             entrypoint=cfg.policy_entrypoint,
         )
 
@@ -282,6 +283,7 @@ def _worker_main(
                 hold_frames=cfg.hold_frames,
                 pitch_min_deg=float(cfg.pitch_min_deg),
                 pitch_max_deg=float(cfg.pitch_max_deg),
+                cam_interval_deg=float(cfg.cam_interval),
                 entrypoint=cfg.policy_entrypoint,
             )
 

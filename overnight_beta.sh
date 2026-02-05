@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Three sequential runs (static -> wonly -> aonly).
+# Three sequential runs (sonly -> donly -> wasdonly).
 # Edit any args below as needed; commands run strictly in order.
 
 # Ensure conda env is active for MineDojo.
@@ -60,6 +60,6 @@ run_one() {
     2>&1 | tee -a "logs/overnight/${exp}_pack.log"
 }
 
-run_one static 1
-run_one wonly 2
-run_one aonly 3
+run_one sonly 1
+run_one donly 2
+run_one wasdonly 3

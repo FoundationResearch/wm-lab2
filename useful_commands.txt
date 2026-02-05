@@ -34,7 +34,7 @@ python data_collector.py \
   --pitch_min_deg -30 --pitch_max_deg 30 \
   --run_name "beta2"
 
-python -m wm_lab2.tools.postprocess --root ./data/wasd12holdrandviewa5 --recursive --only_ok --processor mg --out_mode subdir --overwrite
+python -m wm_lab2.tools.postprocess --root ./data/wasd12holdrandviewajf1 --recursive --only_ok --processor mg --out_mode subdir --overwrite
 
 python data_collector.py \
   --policy wasd12holdrandview --num_episodes 10 --num_workers 10 \

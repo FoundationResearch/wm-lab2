@@ -7,7 +7,9 @@ from typing import Any, Callable, Dict, Optional, Sequence
 import numpy as np
 
 from wm_lab2.inputs.base import Policy
+from wm_lab2.inputs.fixed_move import FixedMovePolicy
 from wm_lab2.inputs.safe_random import SafeRandomPolicy
+from wm_lab2.inputs.static import StaticPolicy
 from wm_lab2.inputs.wasd import WASDOnlyPolicy
 from wm_lab2.inputs.wasd4hold import WASD4HoldPolicy
 from wm_lab2.inputs.wasd12holdrandview import WASD12HoldRandViewPolicy
@@ -42,6 +44,7 @@ def make_policy(
     # WASD12HoldRandView args
     pitch_min_deg: float = -45.0,
     pitch_max_deg: float = 45.0,
+    cam_interval_deg: float = 15.0,
     # Custom policy factory: "pkg.module:factory"
     entrypoint: Optional[str] = None,
 ) -> Policy:
@@ -50,7 +53,13 @@ def make_policy(
 
     Built-ins:
     - name="safe_random"
+    - name="static"
     - name="wasd"
+    - name="wasdonly"
+    - name="wonly"
+    - name="aonly"
+    - name="sonly"
+    - name="donly"
     - name="wasd4hold"
     - name="wasd12hold"
     - name="wasd12holdrandview"
@@ -71,8 +80,24 @@ def make_policy(
             non_stationary_prob=non_stationary_prob,
         )
 
+    if name == "static":
+        return StaticPolicy(nvec=nvec, noop=noop, rng=rng)
+
     if name == "wasd":
         return WASDOnlyPolicy(nvec=nvec, noop=noop, rng=rng, p_jump=p_jump)
+
+    if name == "wasdonly":
+        # Random WASD locomotion only; no view motion. Use hold for temporal stability; disable jump by default.
+        return WASD4HoldPolicy(nvec=nvec, noop=noop, rng=rng, p_jump=0.0, hold_frames=hold_frames)
+
+    if name == "wonly":
+        return FixedMovePolicy(nvec=nvec, noop=noop, rng=rng, forward=1, strafe=0, jump=0)
+    if name == "aonly":
+        return FixedMovePolicy(nvec=nvec, noop=noop, rng=rng, forward=0, strafe=1, jump=0)
+    if name == "sonly":
+        return FixedMovePolicy(nvec=nvec, noop=noop, rng=rng, forward=2, strafe=0, jump=0)
+    if name == "donly":
+        return FixedMovePolicy(nvec=nvec, noop=noop, rng=rng, forward=0, strafe=2, jump=0)
 
     if name == "wasd4hold":
         return WASD4HoldPolicy(nvec=nvec, noop=noop, rng=rng, p_jump=p_jump, hold_frames=hold_frames)
@@ -89,6 +114,7 @@ def make_policy(
             hold_frames=hold_frames,
             pitch_min_deg=float(pitch_min_deg),
             pitch_max_deg=float(pitch_max_deg),
+            cam_interval_deg=float(cam_interval_deg),
         )
 
     if name == "custom":
@@ -103,7 +129,8 @@ def make_policy(
         return policy  # type: ignore[return-value]
 
     raise ValueError(
-        f"Unknown policy '{name}'. Use one of: safe_random, wasd, wasd4hold, wasd12hold, wasd12holdrandview, custom."
+        f"Unknown policy '{name}'. Use one of: safe_random, static, wasd, wasdonly, wonly, aonly, sonly, donly, "
+        "wasd4hold, wasd12hold, wasd12holdrandview, custom."
     )
 
 

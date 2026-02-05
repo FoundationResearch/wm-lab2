@@ -89,7 +89,10 @@ def main() -> int:
         "--policy",
         type=str,
         default="safe_random",
-        help="safe_random | wasd | wasd4hold | wasd12hold | wasd12holdrandview | custom",
+        help=(
+            "safe_random | static | wasd | wasdonly | wonly | aonly | sonly | donly | "
+            "wasd4hold | wasd12hold | wasd12holdrandview | custom"
+        ),
     )
     parser.add_argument(
         "--policy_entrypoint",
@@ -140,11 +143,11 @@ def main() -> int:
 
     # Policy-specific defaults (only apply if user did not override the defaults).
     policy_l = args.policy.strip().lower()
-    if policy_l in ("wasd4hold", "wasd12hold", "wasd12holdrandview"):
+    if policy_l in ("wasd4hold", "wasd12hold", "wasd12holdrandview", "wasdonly"):
         if args.image_size_hw == "160,256":
             args.image_size_hw = "256,256"
-        # hold_frames: wasd12hold defaults to 12
-        if policy_l in ("wasd12hold", "wasd12holdrandview") and int(args.hold_frames) == 4:
+        # hold_frames: wasd12hold/wasd12holdrandview/wasdonly default to 12
+        if policy_l in ("wasd12hold", "wasd12holdrandview", "wasdonly") and int(args.hold_frames) == 4:
             args.hold_frames = 12
         # view speed: wasd12holdrandview defaults to 5x slower camera (15 -> 3 degrees)
         if policy_l == "wasd12holdrandview" and float(args.cam_interval) == 15.0:
