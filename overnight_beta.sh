@@ -23,7 +23,7 @@ fi
 # Change this one word to "beta", "gamma", etc.
 RUN_WORD="beta"
 
-NUM_EPISODES=8
+NUM_EPISODES=1024
 
 COMMON_ARGS=(
   --num_episodes "${NUM_EPISODES}" --num_workers 4
