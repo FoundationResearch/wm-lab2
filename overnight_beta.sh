@@ -21,12 +21,12 @@ if ! command -v zstd >/dev/null 2>&1; then
 fi
 
 # Change this one word to "beta", "gamma", etc.
-RUN_WORD="alpha"
+RUN_WORD="beta"
 
-NUM_EPISODES=1024
+NUM_EPISODES=8
 
 COMMON_ARGS=(
-  --num_episodes "${NUM_EPISODES}" --num_workers 32
+  --num_episodes "${NUM_EPISODES}" --num_workers 4
   --schedule_mode dynamic --resume
   --xvfb_per_worker --xvfb_display_base 90
   --minedojo_headless auto
@@ -60,6 +60,7 @@ run_one() {
     2>&1 | tee -a "logs/overnight/${exp}_pack.log"
 }
 
-run_one sonly 1
-run_one donly 2
-run_one wasdonly 3
+run_one aonly 1
+run_one sonly 2
+run_one donly 3
+run_one wasdonly 4

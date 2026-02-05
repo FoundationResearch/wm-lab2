@@ -214,7 +214,8 @@ def _collect_single_process(cfg: CollectConfig) -> int:
             with open(os.path.join(episode_dir, "manifest.json"), "w", encoding="utf-8") as f:
                 json.dump(manifest, f, indent=2)
 
-            episode = run_episode(env=env, policy=policy, max_steps=cfg.max_steps)
+            warmup = 10 if str(cfg.policy).strip().lower() in ("aonly", "sonly", "donly") else 0
+            episode = run_episode(env=env, policy=policy, max_steps=cfg.max_steps, warmup_steps=warmup)
             write_episode(out_dir=episode_dir, episode=episode, fps=cfg.fps)
 
     finally:
@@ -356,7 +357,8 @@ def _worker_main(
                     with open(os.path.join(episode_dir, "manifest.json"), "w", encoding="utf-8") as f:
                         json.dump(manifest, f, indent=2)
 
-                    episode = run_episode(env=env, policy=policy, max_steps=cfg.max_steps)
+                    warmup = 10 if str(cfg.policy).strip().lower() in ("aonly", "sonly", "donly") else 0
+                    episode = run_episode(env=env, policy=policy, max_steps=cfg.max_steps, warmup_steps=warmup)
                     write_episode(out_dir=episode_dir, episode=episode, fps=cfg.fps)
                 except BaseException as e:
                     if event_q is not None:

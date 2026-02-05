@@ -22,6 +22,7 @@ def run_episode(
     env: Any,
     policy: Policy,
     max_steps: int,
+    warmup_steps: int = 0,
 ) -> EpisodeData:
     obs: Dict[str, Any] = env.reset()
     policy.reset(obs)
@@ -32,6 +33,14 @@ def run_episode(
     yaw_list: List[float] = []
     pitch_list: List[float] = []
 
+    # Warmup: step the env without recording (useful to get out of spawn collisions / UI state).
+    for _ in range(max(0, int(warmup_steps))):
+        action = policy.act(obs)
+        obs, reward, done, info = env.step(action)  # noqa: F841
+        if bool(done):
+            break
+
+    # Recording phase: collect exactly `max_steps` frames unless the env terminates early.
     for _ in range(max_steps):
         rgb = obs.get("rgb", None)
         if rgb is None:
