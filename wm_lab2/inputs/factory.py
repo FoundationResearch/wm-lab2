@@ -100,8 +100,8 @@ def make_policy(
             forward=0,
             strafe=1,
             jump=0,
-            warmup_w_frames=100,
-            wait_noop_frames=50,
+            warmup_w_frames=10,
+            wait_noop_frames=10,
         )
     if name == "sonly":
         return FixedMovePolicy(
@@ -111,8 +111,8 @@ def make_policy(
             forward=2,
             strafe=0,
             jump=0,
-            warmup_w_frames=100,
-            wait_noop_frames=50,
+            warmup_w_frames=20,
+            wait_noop_frames=10,
         )
     if name == "donly":
         return FixedMovePolicy(
@@ -122,8 +122,8 @@ def make_policy(
             forward=0,
             strafe=2,
             jump=0,
-            warmup_w_frames=100,
-            wait_noop_frames=50,
+            warmup_w_frames=10,
+            wait_noop_frames=10,
         )
 
     if name == "wasd4hold":
