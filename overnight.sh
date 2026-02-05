@@ -21,7 +21,7 @@ if ! command -v zstd >/dev/null 2>&1; then
 fi
 
 # Change this one word to "beta", "gamma", etc.
-RUN_WORD="gamma"
+RUN_WORD="alphafix"
 
 NUM_EPISODES=8192
 

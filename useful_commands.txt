@@ -53,3 +53,5 @@ python playground/hyw4average/render_traj3d.py \
   --view follow --follow_look camera \
   --follow_look_down 0.4 \
   --with_rgb
+
+python detect_stuck.py data/wasd12holdrandviewaj1 --stat
