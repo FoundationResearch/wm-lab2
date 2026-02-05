@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, List
 
 import numpy as np
 
@@ -71,8 +71,22 @@ class WASD12HoldRandViewPolicy(Policy):
         """
         Returns (dpitch_bin, dyaw_bin) each in {-view_bin_step, 0, +view_bin_step}, not both 0.
         """
+        return self._sample_view_delta_with_pitch(pitch_f=None)
+
+    def _sample_view_delta_with_pitch(self, pitch_f: Optional[float]) -> Tuple[int, int]:
+        """
+        Sample view delta (dpitch_bin, dyaw_bin).
+
+        If pitch is outside [pitch_min_deg, pitch_max_deg] at the *start* of a hold block,
+        constrain the next sampled direction to steer only in a subset:
+        - pitch > max: only {down, down-left, down-right}
+        - pitch < min: only {up, up-left, up-right}
+
+        (Block-internal per-frame clamping still applies in `act()`.)
+        """
         s = int(max(1, self.view_bin_step))
-        choices = [
+
+        all_choices: List[Tuple[int, int]] = [
             (-s, 0),  # up
             (s, 0),  # down
             (0, -s),  # left
@@ -82,12 +96,34 @@ class WASD12HoldRandViewPolicy(Policy):
             (s, -s),  # down-left
             (s, s),  # down-right
         ]
+
+        choices = all_choices
+        if pitch_f is not None and not np.isnan(pitch_f):
+            lo = float(self.pitch_min_deg)
+            hi = float(self.pitch_max_deg)
+            if lo > hi:
+                lo, hi = hi, lo
+            if pitch_f >= hi:
+                # down / down-left / down-right
+                choices = [(s, 0), (s, -s), (s, s)]
+            elif pitch_f <= lo:
+                # up / up-left / up-right
+                choices = [(-s, 0), (-s, -s), (-s, s)]
+
         return choices[int(self.rng.integers(0, len(choices)))]
 
     def act(self, obs: Dict[str, Any]) -> np.ndarray:
+        # Read pitch (if available) so we can constrain the next block's view sampling.
+        try:
+            loc = obs.get("location_stats", {}) if isinstance(obs, dict) else {}
+            pitch = loc.get("pitch", None) if isinstance(loc, dict) else None
+            pitch_f = float(pitch) if pitch is not None else float("nan")
+        except Exception:
+            pitch_f = float("nan")
+
         if self._cached_move is None or self._hold_left <= 0:
             self._cached_move = self._sample_move()
-            self._cached_view_delta = self._sample_view_delta()
+            self._cached_view_delta = self._sample_view_delta_with_pitch(pitch_f=pitch_f)
             self._hold_left = max(1, int(self.hold_frames))
 
         self._hold_left -= 1
@@ -99,13 +135,6 @@ class WASD12HoldRandViewPolicy(Policy):
 
         # Optional pitch clamping based on current observation.
         # We interpret dp<0 as "look up" and dp>0 as "look down" (see _sample_view_delta docstring).
-        try:
-            loc = obs.get("location_stats", {}) if isinstance(obs, dict) else {}
-            pitch = loc.get("pitch", None) if isinstance(loc, dict) else None
-            pitch_f = float(pitch) if pitch is not None else float("nan")
-        except Exception:
-            pitch_f = float("nan")
-
         if not np.isnan(pitch_f):
             lo = float(self.pitch_min_deg)
             hi = float(self.pitch_max_deg)
