@@ -21,16 +21,19 @@ if ! command -v zstd >/dev/null 2>&1; then
 fi
 
 # Change this one word to "beta", "gamma", etc.
-RUN_WORD="alphafix"
+RUN_WORD="beta"
 
 NUM_EPISODES=8192
 
+# Minecraft RGB camera (Malmo VideoProducer): add e.g. `--mc_video_viewpoint 1` for third person behind
+# (0=first person default, 1=behind, 2=facing).
 COMMON_ARGS=(
   --num_episodes "${NUM_EPISODES}" --num_workers 32
   --schedule_mode dynamic --resume
   --xvfb_per_worker --xvfb_display_base 90
   --minedojo_headless auto
   --image_size_hw 352,640
+  --mc_video_viewpoint 2
   --fps 25 --max_steps 96 --hold_frames 12 --p_jump 0 --cam_interval 1
   --pitch_min_deg -30 --pitch_max_deg 30
 )

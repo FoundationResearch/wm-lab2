@@ -83,6 +83,16 @@ def main() -> int:
         action="store_true",
         help="Disable patch that sets Minecraft options.txt `autoJump:true` (MineDojo default is false).",
     )
+    parser.add_argument(
+        "--mc_video_viewpoint",
+        type=int,
+        default=0,
+        choices=[0, 1, 2],
+        help=(
+            "Malmo VideoProducer viewpoint for RGB observations: "
+            "0=first person, 1=third person behind, 2=third person facing (see Minecraft F5-style views)."
+        ),
+    )
 
     # Policy
     parser.add_argument(
@@ -175,6 +185,7 @@ def main() -> int:
         image_size_hw=(int(h), int(w)),
         cam_interval=float(args.cam_interval),
         mc_autojump=not bool(args.no_mc_autojump),
+        mc_video_viewpoint=int(args.mc_video_viewpoint),
         policy=args.policy,
         policy_entrypoint=args.policy_entrypoint,
         active_dims=active_dims,

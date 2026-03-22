@@ -37,6 +37,8 @@ class CollectConfig:
     cam_interval: float = 15.0
     # Minecraft client options (patched via MineDojo's bundled template).
     mc_autojump: bool = True
+    # Malmo VideoProducer: 0=first person, 1=third person behind, 2=third person facing.
+    mc_video_viewpoint: int = 0
     # Policy
     policy: str = "safe_random"  # safe_random | static | wasd | wasdonly | wonly | aonly | sonly | donly | ... | custom
     policy_entrypoint: Optional[str] = None  # for custom
@@ -163,6 +165,7 @@ def _collect_single_process(cfg: CollectConfig) -> int:
                 image_size_hw=cfg.image_size_hw,
                 cam_interval=float(cfg.cam_interval),
                 mc_autojump=bool(getattr(cfg, "mc_autojump", True)),
+                mc_video_viewpoint=int(getattr(cfg, "mc_video_viewpoint", 0)),
             )
         )
         policy = make_policy(
@@ -201,6 +204,7 @@ def _collect_single_process(cfg: CollectConfig) -> int:
                 policy_name=cfg.policy,
             )
             manifest["cam_interval"] = float(cfg.cam_interval)
+            manifest["mc_video_viewpoint"] = int(getattr(cfg, "mc_video_viewpoint", 0))
             manifest["num_workers"] = int(cfg.num_workers)
             manifest["worker_id"] = 0
             manifest["worker_seed"] = int(cfg.seed)
@@ -273,6 +277,7 @@ def _worker_main(
                     image_size_hw=cfg.image_size_hw,
                     cam_interval=float(cfg.cam_interval),
                     mc_autojump=bool(getattr(cfg, "mc_autojump", True)),
+                    mc_video_viewpoint=int(getattr(cfg, "mc_video_viewpoint", 0)),
                 )
             )
             policy = make_policy(
@@ -341,6 +346,7 @@ def _worker_main(
                         policy_name=cfg.policy,
                     )
                     manifest["cam_interval"] = float(cfg.cam_interval)
+                    manifest["mc_video_viewpoint"] = int(getattr(cfg, "mc_video_viewpoint", 0))
                     manifest["num_workers"] = int(cfg.num_workers)
                     manifest["worker_id"] = int(worker_id)
                     manifest["worker_seed"] = int(worker_seed)

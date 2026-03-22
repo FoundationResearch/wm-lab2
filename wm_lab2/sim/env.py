@@ -6,6 +6,7 @@ from typing import Any, Optional, Tuple
 import numpy as np
 
 from wm_lab2.sim.mc_options import ensure_minedojo_autojump
+from wm_lab2.sim.mc_video_viewpoint import install_pov_viewpoint
 
 
 @dataclass(frozen=True)
@@ -14,6 +15,8 @@ class EnvSpec:
     image_size_hw: Tuple[int, int] = (160, 256)
     cam_interval: float = 15.0
     mc_autojump: bool = True
+    # Malmo VideoProducer viewpoint: 0=first person, 1=third person behind, 2=third person facing.
+    mc_video_viewpoint: int = 0
 
 
 def make_env(spec: EnvSpec) -> Tuple[Any, np.ndarray, np.ndarray]:
@@ -28,6 +31,8 @@ def make_env(spec: EnvSpec) -> Tuple[Any, np.ndarray, np.ndarray]:
 
     # Patch MineDojo's bundled Minecraft options template before starting MC.
     ensure_minedojo_autojump(enabled=bool(spec.mc_autojump))
+
+    install_pov_viewpoint(viewpoint=int(spec.mc_video_viewpoint))
 
     env = minedojo.make(task_id=spec.task_id, image_size=spec.image_size_hw, cam_interval=spec.cam_interval)
 
