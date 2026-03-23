@@ -101,7 +101,8 @@ def main() -> int:
         default="safe_random",
         help=(
             "safe_random | static | wasd | wasdonly | wonly | aonly | sonly | donly | "
-            "wasd4hold | wasd12hold | wasd12holdrandview | custom"
+            "wasd4hold | wasd12hold | wasd12holdrandview | "
+            "cam_pitch12hold | cam_yaw12hold | cam_view12hold | wasd12holdxorcam | custom"
         ),
     )
     parser.add_argument(
@@ -118,7 +119,12 @@ def main() -> int:
     )
     parser.add_argument("--non_stationary_prob", type=float, default=0.95)
     parser.add_argument("--p_jump", type=float, default=0.05)
-    parser.add_argument("--hold_frames", type=int, default=4, help="For wasd4hold: hold the sampled WASD action for N frames.")
+    parser.add_argument(
+        "--hold_frames",
+        type=int,
+        default=4,
+        help="Hold duration (frames) for hold-based policies (default 12 for *12* policies when unchanged).",
+    )
     parser.add_argument(
         "--pitch_min_deg",
         type=float,
@@ -153,11 +159,20 @@ def main() -> int:
 
     # Policy-specific defaults (only apply if user did not override the defaults).
     policy_l = args.policy.strip().lower()
-    if policy_l in ("wasd4hold", "wasd12hold", "wasd12holdrandview", "wasdonly"):
+    _hold12_policies = (
+        "wasd12hold",
+        "wasd12holdrandview",
+        "wasdonly",
+        "cam_pitch12hold",
+        "cam_yaw12hold",
+        "cam_view12hold",
+        "wasd12holdxorcam",
+    )
+    if policy_l in ("wasd4hold",) + _hold12_policies:
         if args.image_size_hw == "160,256":
             args.image_size_hw = "256,256"
-        # hold_frames: wasd12hold/wasd12holdrandview/wasdonly default to 12
-        if policy_l in ("wasd12hold", "wasd12holdrandview", "wasdonly") and int(args.hold_frames) == 4:
+        # hold_frames: *12* policies default to 12 when left at factory default (4)
+        if policy_l in _hold12_policies and int(args.hold_frames) == 4:
             args.hold_frames = 12
         # view speed: wasd12holdrandview defaults to 5x slower camera (15 -> 3 degrees)
         if policy_l == "wasd12holdrandview" and float(args.cam_interval) == 15.0:

@@ -21,9 +21,9 @@ if ! command -v zstd >/dev/null 2>&1; then
 fi
 
 # Change this one word to "beta", "gamma", etc.
-RUN_WORD="beta"
+RUN_WORD="alpha"
 
-NUM_EPISODES=8192
+NUM_EPISODES=1024
 
 # Minecraft RGB camera (Malmo VideoProducer): add e.g. `--mc_video_viewpoint 1` for third person behind
 # (0=first person default, 1=behind, 2=facing).
@@ -33,7 +33,7 @@ COMMON_ARGS=(
   --xvfb_per_worker --xvfb_display_base 90
   --minedojo_headless auto
   --image_size_hw 352,640
-  --mc_video_viewpoint 2
+  --mc_video_viewpoint 1
   --fps 25 --max_steps 96 --hold_frames 12 --p_jump 0 --cam_interval 1
   --pitch_min_deg -30 --pitch_max_deg 30
 )
@@ -56,13 +56,13 @@ run_one() {
     --processor mg --out_mode subdir --overwrite 2>&1 | tee -a "logs/overnight/${exp}_mg.log"
 
   # package (no auto-upload)
-  tar -C "${out_root}" --exclude=".minedojo_env_init.lock" \
-    --transform="s,^,${exp}/," \
-    -cf - . \
-    | zstd -T0 -19 -o "./data/${exp}.tar.zst" \
-    2>&1 | tee -a "logs/overnight/${exp}_pack.log"
+  # tar -C "${out_root}" --exclude=".minedojo_env_init.lock" \
+  #   --transform="s,^,${exp}/," \
+  #   -cf - . \
+  #   | zstd -T0 -19 -o "./data/${exp}.tar.zst" \
+  #   2>&1 | tee -a "logs/overnight/${exp}_pack.log"
 }
 
-run_one wasd12holdrandview 1
-run_one wasd12holdrandview 2
-run_one wasd12holdrandview 3
+run_one static 1
+# run_one wasd12holdrandview 2
+# run_one wasd12holdrandview 3

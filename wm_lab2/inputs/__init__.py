@@ -6,6 +6,7 @@ from wm_lab2.inputs.static import StaticPolicy
 from wm_lab2.inputs.wasd import WASDOnlyPolicy
 from wm_lab2.inputs.wasd4hold import WASD4HoldPolicy
 from wm_lab2.inputs.wasd12holdrandview import WASD12HoldRandViewPolicy
+from wm_lab2.inputs.cam12hold import Camera12HoldPolicy, Wasd12HoldXorCamPolicy
 
 __all__ = [
     "Policy",
@@ -16,6 +17,8 @@ __all__ = [
     "WASDOnlyPolicy",
     "WASD4HoldPolicy",
     "WASD12HoldRandViewPolicy",
+    "Camera12HoldPolicy",
+    "Wasd12HoldXorCamPolicy",
 ]
 
 

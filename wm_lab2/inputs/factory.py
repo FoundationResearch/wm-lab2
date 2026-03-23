@@ -13,6 +13,7 @@ from wm_lab2.inputs.static import StaticPolicy
 from wm_lab2.inputs.wasd import WASDOnlyPolicy
 from wm_lab2.inputs.wasd4hold import WASD4HoldPolicy
 from wm_lab2.inputs.wasd12holdrandview import WASD12HoldRandViewPolicy
+from wm_lab2.inputs.cam12hold import Camera12HoldPolicy, Wasd12HoldXorCamPolicy
 
 
 def _import_obj(spec: str) -> Any:
@@ -63,6 +64,10 @@ def make_policy(
     - name="wasd4hold"
     - name="wasd12hold"
     - name="wasd12holdrandview"
+    - name="cam_pitch12hold"
+    - name="cam_yaw12hold"
+    - name="cam_view12hold"
+    - name="wasd12holdxorcam"
 
     Custom:
     - name="custom" + entrypoint="pkg.module:factory"
@@ -117,6 +122,54 @@ def make_policy(
             cam_interval_deg=float(cam_interval_deg),
         )
 
+    if name == "cam_pitch12hold":
+        return Camera12HoldPolicy(
+            nvec=nvec,
+            noop=noop,
+            rng=rng,
+            mode="pitch",
+            hold_frames=hold_frames,
+            pitch_min_deg=float(pitch_min_deg),
+            pitch_max_deg=float(pitch_max_deg),
+            cam_interval_deg=float(cam_interval_deg),
+        )
+
+    if name == "cam_yaw12hold":
+        return Camera12HoldPolicy(
+            nvec=nvec,
+            noop=noop,
+            rng=rng,
+            mode="yaw",
+            hold_frames=hold_frames,
+            pitch_min_deg=float(pitch_min_deg),
+            pitch_max_deg=float(pitch_max_deg),
+            cam_interval_deg=float(cam_interval_deg),
+        )
+
+    if name == "cam_view12hold":
+        return Camera12HoldPolicy(
+            nvec=nvec,
+            noop=noop,
+            rng=rng,
+            mode="both",
+            hold_frames=hold_frames,
+            pitch_min_deg=float(pitch_min_deg),
+            pitch_max_deg=float(pitch_max_deg),
+            cam_interval_deg=float(cam_interval_deg),
+        )
+
+    if name == "wasd12holdxorcam":
+        return Wasd12HoldXorCamPolicy(
+            nvec=nvec,
+            noop=noop,
+            rng=rng,
+            hold_frames=hold_frames,
+            p_jump=p_jump,
+            pitch_min_deg=float(pitch_min_deg),
+            pitch_max_deg=float(pitch_max_deg),
+            cam_interval_deg=float(cam_interval_deg),
+        )
+
     if name == "custom":
         if not entrypoint:
             raise ValueError("policy 'custom' requires --policy_entrypoint pkg.module:factory")
@@ -130,7 +183,8 @@ def make_policy(
 
     raise ValueError(
         f"Unknown policy '{name}'. Use one of: safe_random, static, wasd, wasdonly, wonly, aonly, sonly, donly, "
-        "wasd4hold, wasd12hold, wasd12holdrandview, custom."
+        "wasd4hold, wasd12hold, wasd12holdrandview, cam_pitch12hold, cam_yaw12hold, cam_view12hold, "
+        "wasd12holdxorcam, custom."
     )
 
 

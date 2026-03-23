@@ -40,7 +40,7 @@ class CollectConfig:
     # Malmo VideoProducer: 0=first person, 1=third person behind, 2=third person facing.
     mc_video_viewpoint: int = 0
     # Policy
-    policy: str = "safe_random"  # safe_random | static | wasd | wasdonly | wonly | aonly | sonly | donly | ... | custom
+    policy: str = "safe_random"  # safe_random | static | wasd | wasdonly | wonly | aonly | sonly | donly | cam_*12hold | wasd12holdxorcam | ... | custom
     policy_entrypoint: Optional[str] = None  # for custom
     # Policy knobs
     active_dims: Optional[tuple[int, ...]] = None  # for safe_random
